@@ -175,7 +175,7 @@ button {
 
 .shop-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -277,10 +277,24 @@ button {
   background: #7a9786;
 }
 
+.mage-mark {
+  background: #86bdd6;
+}
+
+.mage-mark::after {
+  right: -11px;
+  top: -5px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #b9f2ff;
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
 .status-strip {
   min-height: 28px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   align-items: center;
   margin-top: 9px;
@@ -555,7 +569,8 @@ button {
   }
 
   .shop-card {
-    height: 76px;
+    height: 74px;
+    padding-inline: 2px;
   }
 
   .action-btn {

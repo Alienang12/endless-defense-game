@@ -1,6 +1,18 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
+const SAVE_KEY = "endlessDefenseV3Save";
+
+const ELEMENTS = {
+  metal: { label: "金", color: "#f1d067", beats: "wood" },
+  wood: { label: "木", color: "#77c66e", beats: "earth" },
+  water: { label: "水", color: "#73c7e8", beats: "fire" },
+  fire: { label: "火", color: "#e86847", beats: "metal" },
+  earth: { label: "土", color: "#c69b62", beats: "water" },
+};
+
+const ELEMENT_ORDER = ["metal", "wood", "water", "fire", "earth"];
+
 const ui = {
   coins: document.getElementById("coinText"),
   territory: document.getElementById("territoryText"),
@@ -8,6 +20,7 @@ const ui = {
   base: document.getElementById("baseText"),
   cap: document.getElementById("capText"),
   selected: document.getElementById("selectedText"),
+  gift: document.getElementById("giftText"),
   best: document.getElementById("bestText"),
   pauseBtn: document.getElementById("pauseBtn"),
   pauseIcon: document.getElementById("pauseIcon"),
@@ -29,6 +42,7 @@ const ui = {
     rifle: document.getElementById("cost-rifle"),
     guard: document.getElementById("cost-guard"),
     medic: document.getElementById("cost-medic"),
+    mage: document.getElementById("cost-mage"),
     turret: document.getElementById("cost-turret"),
   },
   shopButtons: [...document.querySelectorAll("[data-buy]")],
@@ -43,58 +57,139 @@ const WORLD = {
   deployRight: 0,
   deployTop: 0,
   deployBottom: 0,
-  bridges: [],
+  paths: [],
 };
 
 const UNIT_TYPES = {
   rifle: {
-    name: "步枪兵",
-    baseCost: 65,
-    hp: 88,
-    damage: 17,
-    range: 230,
-    fireRate: 1.05,
-    moveSpeed: 165,
-    color: "#5f94c8",
+    name: "金弩手",
+    baseCost: 70,
+    hp: 90,
+    damage: 18,
+    range: 250,
+    fireRate: 1.12,
+    moveSpeed: 168,
+    element: "metal",
+    color: "#d9b956",
+    role: "穿甲远程",
   },
   guard: {
-    name: "盾卫",
+    name: "土盾卫",
     baseCost: 95,
-    hp: 220,
+    hp: 230,
     damage: 13,
-    range: 46,
-    fireRate: 0.72,
-    moveSpeed: 130,
-    color: "#7f9dab",
+    range: 50,
+    fireRate: 0.74,
+    moveSpeed: 132,
+    element: "earth",
+    color: "#a7835b",
+    role: "堵桥承伤",
   },
   medic: {
-    name: "医师",
+    name: "木医师",
     baseCost: 125,
-    hp: 84,
+    hp: 86,
     damage: 5,
-    range: 205,
-    fireRate: 1.2,
-    moveSpeed: 155,
-    color: "#78b889",
+    range: 210,
+    fireRate: 1.15,
+    moveSpeed: 156,
+    element: "wood",
+    color: "#77b978",
+    role: "治疗续航",
+  },
+  mage: {
+    name: "水术士",
+    baseCost: 150,
+    hp: 78,
+    damage: 11,
+    range: 235,
+    fireRate: 0.92,
+    moveSpeed: 150,
+    element: "water",
+    color: "#73bfe0",
+    role: "减速控场",
   },
   turret: {
-    name: "机枪塔",
+    name: "火炮台",
     baseCost: 190,
-    hp: 150,
-    damage: 14,
-    range: 280,
-    fireRate: 1.9,
-    moveSpeed: 70,
-    color: "#b88d50",
+    hp: 155,
+    damage: 16,
+    range: 285,
+    fireRate: 1.55,
+    moveSpeed: 72,
+    element: "fire",
+    color: "#d96d43",
+    role: "范围爆发",
   },
 };
 
 const ENEMY_TYPES = {
-  grunt: { name: "小兵", hp: 74, damage: 8, speed: 32, reward: 18, color: "#7fa65f" },
-  runner: { name: "快兵", hp: 54, damage: 7, speed: 55, reward: 20, color: "#d4ad47" },
-  brute: { name: "重兵", hp: 158, damage: 14, speed: 23, reward: 34, color: "#b95b50" },
-  shield: { name: "盾兵", hp: 126, damage: 10, speed: 27, reward: 32, armor: 4, color: "#6e8f9c" },
-  boss: { name: "首领", hp: 560, damage: 25, speed: 19, reward: 125, armor: 6, color: "#8b5bc4" },
+  sprout: {
+    name: "木藤妖",
+    hp: 82,
+    damage: 8,
+    speed: 31,
+    reward: 19,
+    armor: 0,
+    element: "wood",
+    color: "#6cad57",
+    trait: "缓慢回血",
+  },
+  cinder: {
+    name: "火爆怪",
+    hp: 66,
+    damage: 10,
+    speed: 41,
+    reward: 24,
+    armor: 0,
+    element: "fire",
+    color: "#d85a43",
+    trait: "死亡爆裂",
+  },
+  tide: {
+    name: "水影",
+    hp: 58,
+    damage: 7,
+    speed: 58,
+    reward: 22,
+    armor: 0,
+    element: "water",
+    color: "#65bede",
+    trait: "高速突进",
+  },
+  shell: {
+    name: "金甲兵",
+    hp: 126,
+    damage: 11,
+    speed: 27,
+    reward: 34,
+    armor: 6,
+    element: "metal",
+    color: "#b9b2a0",
+    trait: "高护甲",
+  },
+  golem: {
+    name: "土巨像",
+    hp: 215,
+    damage: 17,
+    speed: 20,
+    reward: 48,
+    armor: 3,
+    element: "earth",
+    color: "#9a7856",
+    trait: "高生命",
+  },
+  boss: {
+    name: "五行首领",
+    hp: 680,
+    damage: 27,
+    speed: 20,
+    reward: 145,
+    armor: 5,
+    element: "fire",
+    color: "#8a5ac4",
+    trait: "首领",
+  },
 };
 
 const TECHS = [
@@ -102,7 +197,7 @@ const TECHS = [
     id: "arms",
     title: "军械科技",
     desc: "全体攻击 +12%，射程 +5%",
-    cost: (level) => 180 + level * 150,
+    cost: (level) => 190 + level * 155,
     apply: () => {
       state.tech.arms += 1;
       state.upgrades.damage *= 1.12;
@@ -112,38 +207,48 @@ const TECHS = [
   {
     id: "fort",
     title: "筑城科技",
-    desc: "城门上限 +160，缓慢修复",
-    cost: (level) => 170 + level * 145,
+    desc: "城门上限 +170，并获得恢复",
+    cost: (level) => 180 + level * 145,
     apply: () => {
       state.tech.fort += 1;
-      state.baseMaxHp += 160;
-      state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 220);
+      state.baseMaxHp += 170;
+      state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 230);
       state.upgrades.regen += 1.8;
     },
   },
   {
     id: "supply",
     title: "后勤科技",
-    desc: "金币收益 +15%，兵力 +1",
-    cost: (level) => 160 + level * 135,
+    desc: "金币收益 +15%，兵力上限 +1",
+    cost: (level) => 165 + level * 135,
     apply: () => {
       state.tech.supply += 1;
       state.upgrades.gold *= 1.15;
       state.unitCap += 1;
     },
   },
+  {
+    id: "alchemy",
+    title: "五行研究",
+    desc: "元素克制伤害 +10%",
+    cost: (level) => 220 + level * 165,
+    apply: () => {
+      state.tech.alchemy += 1;
+      state.upgrades.elementPower += 0.1;
+    },
+  },
 ];
 
 const UPGRADE_POOL = [
   {
-    title: "士兵攻击力提升 8%",
+    title: "全军攻击 +8%",
     desc: "所有部队伤害永久提高",
     apply: () => {
       state.upgrades.damage *= 1.08;
     },
   },
   {
-    title: "士兵生命提升 18%",
+    title: "全军生命 +18%",
     desc: "现有和新招募单位都更耐打",
     apply: () => {
       state.upgrades.hp *= 1.18;
@@ -154,57 +259,57 @@ const UPGRADE_POOL = [
     },
   },
   {
-    title: "射速提升 7%",
+    title: "射速 +7%",
     desc: "远程与近战出手都更快",
     apply: () => {
       state.upgrades.fireRate *= 1.07;
     },
   },
   {
-    title: "行军速度提升 12%",
+    title: "行军速度 +12%",
     desc: "拖动后部队归位更快",
     apply: () => {
       state.upgrades.move *= 1.12;
     },
   },
   {
-    title: "敌人攻击力降低 4%",
+    title: "敌人攻击 -4%",
     desc: "后续敌人的伤害会变低",
     apply: () => {
       state.upgrades.enemyDamage *= 0.96;
     },
   },
   {
-    title: "金币收益提升 15%",
+    title: "金币收益 +15%",
     desc: "击败敌人和守波奖励更多",
     apply: () => {
       state.upgrades.gold *= 1.15;
     },
   },
   {
-    title: "兵力上限增加 2",
+    title: "兵力上限 +2",
     desc: "可以同时部署更多单位",
     apply: () => {
       state.unitCap += 2;
     },
   },
   {
-    title: "爆裂弹概率提升 6%",
+    title: "爆裂弹 +6%",
     desc: "远程攻击偶尔伤到周围敌人",
     apply: () => {
       state.upgrades.splash += 0.06;
     },
   },
   {
-    title: "招募费用降低 8%",
+    title: "招募费用 -8%",
     desc: "所有兵种价格一起下降",
     apply: () => {
       state.upgrades.discount *= 0.92;
     },
   },
   {
-    title: "医师治疗提升 25%",
-    desc: "医师治疗量永久提高",
+    title: "治疗量 +25%",
+    desc: "木医师治疗量永久提高",
     apply: () => {
       state.upgrades.heal *= 1.25;
     },
@@ -215,8 +320,9 @@ let state;
 let lastFrame = 0;
 let entityId = 1;
 let resizeObserver;
+let saveClock = 0;
 
-function newState() {
+function createDefaultState() {
   return {
     running: true,
     paused: false,
@@ -231,14 +337,15 @@ function newState() {
     bridgeCount: 1,
     territory: 1,
     canClaim: false,
-    coins: 180,
+    giftTimer: 60,
+    coins: 280,
     lifetimeCoins: 0,
-    nextChoiceAt: 700,
+    nextChoiceAt: 750,
     choices: 0,
     kills: 0,
-    baseHp: 560,
-    baseMaxHp: 560,
-    unitCap: 10,
+    baseHp: 1300,
+    baseMaxHp: 1300,
+    unitCap: 11,
     selectedId: null,
     draggingId: null,
     dragOffsetX: 0,
@@ -248,8 +355,9 @@ function newState() {
     projectiles: [],
     particles: [],
     floaters: [],
-    bought: { rifle: 0, guard: 0, medic: 0, turret: 0 },
-    tech: { arms: 0, fort: 0, supply: 0 },
+    bought: { rifle: 0, guard: 0, medic: 0, mage: 0, turret: 0 },
+    tech: { arms: 0, fort: 0, supply: 0, alchemy: 0 },
+    elementBoost: { metal: 0, wood: 0, water: 0, fire: 0, earth: 0 },
     upgrades: {
       damage: 1,
       hp: 1,
@@ -262,6 +370,7 @@ function newState() {
       splash: 0,
       regen: 0,
       heal: 1,
+      elementPower: 0,
     },
     bestWave: Number(localStorage.getItem("endlessDefenseBestWave") || 0),
   };
@@ -277,15 +386,62 @@ function resizeCanvas() {
   WORLD.width = rect.width;
   WORLD.height = rect.height;
   WORLD.baseX = Math.max(54, rect.width * 0.14);
-  WORLD.enemyGateX = rect.width - Math.max(42, rect.width * 0.08);
+  WORLD.enemyGateX = rect.width - Math.max(38, rect.width * 0.07);
   WORLD.deployLeft = WORLD.baseX + 58;
-  WORLD.deployRight = rect.width - 72;
-  WORLD.deployTop = rect.height * 0.24;
-  WORLD.deployBottom = rect.height * 0.78;
-  WORLD.bridges = [
-    { y: rect.height * 0.42 },
-    { y: rect.height * 0.64 },
+  WORLD.deployRight = rect.width - 70;
+  WORLD.deployTop = rect.height * 0.25;
+  WORLD.deployBottom = rect.height * 0.79;
+  rebuildPaths();
+}
+
+function rebuildPaths() {
+  const w = WORLD.width;
+  const h = WORLD.height;
+  const endX = WORLD.baseX + 32;
+  WORLD.paths = [
+    buildPath([
+      [w - 34, h * 0.34],
+      [w * 0.82, h * 0.39],
+      [w * 0.69, h * 0.32],
+      [w * 0.56, h * 0.48],
+      [w * 0.42, h * 0.41],
+      [w * 0.3, h * 0.54],
+      [endX, h * 0.48],
+    ]),
+    buildPath([
+      [w - 34, h * 0.72],
+      [w * 0.82, h * 0.64],
+      [w * 0.68, h * 0.76],
+      [w * 0.55, h * 0.61],
+      [w * 0.4, h * 0.72],
+      [w * 0.29, h * 0.58],
+      [endX, h * 0.6],
+    ]),
   ];
+}
+
+function buildPath(points) {
+  const segments = [];
+  let length = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    const from = { x: points[i - 1][0], y: points[i - 1][1] };
+    const to = { x: points[i][0], y: points[i][1] };
+    const dist = Math.hypot(to.x - from.x, to.y - from.y);
+    segments.push({ from, to, start: length, dist });
+    length += dist;
+  }
+  return { points: points.map(([x, y]) => ({ x, y })), segments, length };
+}
+
+function pointOnPath(pathIndex, progress) {
+  const path = WORLD.paths[pathIndex] || WORLD.paths[0];
+  const s = clamp(progress, 0, path.length);
+  const segment = path.segments.find((item) => s <= item.start + item.dist) || path.segments[path.segments.length - 1];
+  const t = segment.dist ? (s - segment.start) / segment.dist : 1;
+  return {
+    x: segment.from.x + (segment.to.x - segment.from.x) * t,
+    y: segment.from.y + (segment.to.y - segment.from.y) * t,
+  };
 }
 
 function rand(min, max) {
@@ -300,20 +456,13 @@ function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-function selectedUnit() {
-  return state.units.find((unit) => unit.id === state.selectedId) || null;
-}
-
-function currentUnitCount() {
-  return state.units.length;
-}
-
-function activeBridgeCount() {
+function activePathCount() {
   return Math.min(2, state.bridgeCount);
 }
 
-function bridgeY(index) {
-  return WORLD.bridges[index]?.y || WORLD.height * 0.5;
+function pathY(index, percent = 0.5) {
+  const path = WORLD.paths[index] || WORLD.paths[0];
+  return pointOnPath(index, path.length * percent).y;
 }
 
 function clampDeployX(x) {
@@ -324,23 +473,32 @@ function clampDeployY(y) {
   return clamp(y, WORLD.deployTop, WORLD.deployBottom);
 }
 
+function selectedUnit() {
+  return state.units.find((unit) => unit.id === state.selectedId) || null;
+}
+
+function currentUnitCount() {
+  return state.units.length;
+}
+
 function costOf(type) {
   const meta = UNIT_TYPES[type];
-  const growth = Math.pow(1.13, state.bought[type]);
+  const growth = Math.pow(1.13, state.bought[type] || 0);
   return Math.max(1, Math.round(meta.baseCost * growth * state.upgrades.discount));
 }
 
 function selectedUpgradeCost() {
   const unit = selectedUnit();
   if (!unit) return 0;
-  return Math.round(95 + unit.level * 85 + Math.pow(unit.level, 1.4) * 18);
+  return Math.round(95 + unit.level * 88 + Math.pow(unit.level, 1.45) * 22);
 }
 
 function claimCost() {
-  return Math.round(160 + state.territory * 120);
+  return Math.round(175 + state.territory * 125);
 }
 
-function spawnUnit(type, x, y) {
+function spawnUnit(type, x, y, free = false) {
+  if (!free && currentUnitCount() >= state.unitCap) return null;
   const meta = UNIT_TYPES[type];
   const maxHp = meta.hp * state.upgrades.hp;
   const unit = {
@@ -360,7 +518,9 @@ function spawnUnit(type, x, y) {
   };
   state.units.push(unit);
   state.selectedId = unit.id;
-  burst(unit.x, unit.y, "#ffe28e", 8);
+  burst(unit.x, unit.y, ELEMENTS[meta.element].color, 10);
+  saveGame();
+  return unit;
 }
 
 function buyUnit(type) {
@@ -377,8 +537,9 @@ function buyUnit(type) {
 
   state.coins -= cost;
   state.bought[type] += 1;
-  const x = WORLD.deployLeft + 44 + rand(0, 110);
-  const y = bridgeY(state.bought[type] % activeBridgeCount()) + rand(-38, 38);
+  const pathIndex = state.bought[type] % activePathCount();
+  const x = WORLD.deployLeft + 55 + rand(0, 120);
+  const y = pathY(pathIndex, 0.72) + rand(-48, 48);
   spawnUnit(type, x, y);
   updateUi();
 }
@@ -393,10 +554,11 @@ function upgradeSelectedUnit() {
   }
   state.coins -= cost;
   unit.level += 1;
-  unit.maxHp *= 1.16;
+  unit.maxHp *= 1.17;
   unit.hp = unit.maxHp;
-  burst(unit.x, unit.y, "#f7ce5d", 14);
-  addFloater(unit.x, unit.y - 36, `Lv.${unit.level}`, "#ffe28e");
+  burst(unit.x, unit.y, ELEMENTS[UNIT_TYPES[unit.type].element].color, 16);
+  addFloater(unit.x, unit.y - 38, `Lv.${unit.level}`, "#ffe28e");
+  saveGame();
   updateUi();
 }
 
@@ -419,23 +581,21 @@ function showTechPanel() {
     `;
     card.addEventListener("click", () => {
       if (state.coins < cost) {
-        state.modalOpen = false;
-        ui.choiceModal.hidden = true;
+        closeModal();
         showToast("金币不够");
-        updateUi();
         return;
       }
       state.coins -= cost;
       tech.apply();
-      state.modalOpen = false;
-      ui.choiceModal.hidden = true;
+      closeModal();
       showToast(`${tech.title} 提升`);
+      saveGame();
       updateUi();
     });
     ui.choiceGrid.appendChild(card);
   });
 
-  ui.choiceNote.textContent = "科技是永久成长，会影响后续所有战斗";
+  ui.choiceNote.textContent = "科技会永久强化部队和领地";
   ui.choiceModal.hidden = false;
 }
 
@@ -449,12 +609,13 @@ function claimTerritory() {
   state.coins -= cost;
   state.territory += 1;
   state.canClaim = false;
-  state.baseMaxHp += 80;
-  state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 150);
-  state.unitCap += state.territory % 2 === 0 ? 1 : 0;
+  state.baseMaxHp += 90;
+  state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 170);
+  if (state.territory % 2 === 0) state.unitCap += 1;
   state.bridgeCount = state.territory >= 3 ? 2 : 1;
-  burst(WORLD.width * 0.62, WORLD.height * 0.22, "#ffe28e", 22);
+  burst(WORLD.width * 0.62, WORLD.height * 0.22, "#ffe28e", 24);
   showToast(`占领第 ${state.territory} 块领地`);
+  saveGame();
   updateUi();
 }
 
@@ -464,20 +625,20 @@ function scheduleWave() {
   state.spawnQueue = [];
   state.canClaim = false;
 
-  const count = Math.min(9 + Math.floor(state.wave * 1.25) + state.territory, 64);
+  const count = Math.min(4 + Math.floor(state.wave * 0.95) + state.territory, 68);
   for (let i = 0; i < count; i += 1) {
     state.spawnQueue.push({
-      at: i * rand(0.36, 0.62),
+      at: i * rand(0.38, 0.68),
       type: pickEnemyType(state.wave),
-      bridge: Math.floor(Math.random() * activeBridgeCount()),
+      pathIndex: Math.floor(Math.random() * activePathCount()),
     });
   }
 
   if (state.wave % 5 === 0) {
     state.spawnQueue.push({
-      at: count * 0.42 + 1.2,
+      at: count * 0.45 + 1.2,
       type: "boss",
-      bridge: Math.floor(Math.random() * activeBridgeCount()),
+      pathIndex: Math.floor(Math.random() * activePathCount()),
     });
   }
 
@@ -486,42 +647,49 @@ function scheduleWave() {
   ui.waveRibbon.classList.remove("show");
   void ui.waveRibbon.offsetWidth;
   ui.waveRibbon.classList.add("show");
+  saveGame();
 }
 
 function pickEnemyType(wave) {
   const roll = Math.random();
-  if (wave < 3) return roll < 0.76 ? "grunt" : "runner";
+  if (wave < 3) return roll < 0.55 ? "sprout" : "tide";
   if (wave < 7) {
-    if (roll < 0.46) return "grunt";
-    if (roll < 0.72) return "runner";
-    return "brute";
+    if (roll < 0.28) return "sprout";
+    if (roll < 0.5) return "tide";
+    if (roll < 0.72) return "cinder";
+    return "shell";
   }
-  if (roll < 0.3) return "grunt";
-  if (roll < 0.52) return "runner";
-  if (roll < 0.78) return "brute";
-  return "shield";
+  if (roll < 0.2) return "sprout";
+  if (roll < 0.39) return "tide";
+  if (roll < 0.59) return "cinder";
+  if (roll < 0.8) return "shell";
+  return "golem";
 }
 
-function spawnEnemy(type, bridge) {
+function spawnEnemy(type, pathIndex) {
   const meta = ENEMY_TYPES[type];
-  const scale = 1 + Math.pow(state.wave, 1.1) * 0.085 + state.territory * 0.035;
+  const scale = 1 + Math.pow(state.wave, 1.08) * 0.064 + state.territory * 0.032;
+  const pos = pointOnPath(pathIndex, 0);
   const enemy = {
     id: entityId++,
     side: "enemy",
     type,
-    bridge,
-    x: WORLD.width + rand(24, 76),
-    y: bridgeY(bridge) + rand(-5, 5),
+    pathIndex,
+    progress: 0,
+    x: pos.x,
+    y: pos.y,
     hp: meta.hp * scale,
     maxHp: meta.hp * scale,
-    damage: meta.damage * (1 + state.wave * 0.04 + state.territory * 0.025) * state.upgrades.enemyDamage,
+    damage: meta.damage * (1 + state.wave * 0.04 + state.territory * 0.026) * state.upgrades.enemyDamage,
     speed: meta.speed * (1 + Math.min(state.wave * 0.006, 0.45)),
     armor: meta.armor || 0,
-    reward: Math.round(meta.reward * (1 + state.wave * 0.016 + state.territory * 0.025) * state.upgrades.gold),
+    reward: Math.round(meta.reward * (1 + state.wave * 0.016 + state.territory * 0.026) * state.upgrades.gold),
+    element: type === "boss" ? ELEMENT_ORDER[state.wave % ELEMENT_ORDER.length] : meta.element,
     color: meta.color,
     cooldown: rand(0.35, 0.8),
     attackFlash: 0,
-    blockedBy: null,
+    slowTimer: 0,
+    regenClock: 0,
   };
   state.enemies.push(enemy);
 }
@@ -530,6 +698,15 @@ function update(dt) {
   if (!state.running || state.paused || state.modalOpen || state.gameOver) return;
 
   state.time += dt;
+  saveClock += dt;
+  state.giftTimer -= dt;
+
+  if (state.giftTimer <= 0) {
+    state.giftTimer = 60;
+    showGiftPanel();
+    return;
+  }
+
   if (state.upgrades.regen > 0) {
     state.baseHp = Math.min(state.baseMaxHp, state.baseHp + state.upgrades.regen * dt);
   }
@@ -544,6 +721,11 @@ function update(dt) {
   removeDead();
   checkUpgradeChoice();
   checkGameOver();
+
+  if (saveClock >= 2) {
+    saveClock = 0;
+    saveGame();
+  }
 }
 
 function processWave(dt) {
@@ -556,16 +738,17 @@ function processWave(dt) {
   state.waveClock += dt;
   while (state.spawnQueue.length && state.spawnQueue[0].at <= state.waveClock) {
     const item = state.spawnQueue.shift();
-    spawnEnemy(item.type, item.bridge);
+    spawnEnemy(item.type, item.pathIndex);
   }
 
   if (state.spawnQueue.length === 0 && state.enemies.length === 0) {
-    state.nextWaveDelay = 2.4;
+    state.nextWaveDelay = 2.6;
     state.canClaim = true;
-    const bonus = Math.round((42 + state.wave * 7 + state.territory * 10) * state.upgrades.gold);
+    const bonus = Math.round((45 + state.wave * 8 + state.territory * 12) * state.upgrades.gold);
     state.coins += bonus;
     state.lifetimeCoins += bonus;
     addFloater(WORLD.width * 0.54, WORLD.height * 0.24, `守住 +${bonus}`, "#ffe28e");
+    saveGame();
   }
 }
 
@@ -587,6 +770,7 @@ function updateUnits(dt) {
   state.units.forEach((unit) => {
     unit.cooldown -= dt;
     unit.attackFlash = Math.max(0, unit.attackFlash - dt * 4);
+
     if (unit.type === "medic") {
       healWithMedic(unit);
       return;
@@ -596,13 +780,13 @@ function updateUnits(dt) {
     if (!target || unit.cooldown > 0) return;
 
     const meta = UNIT_TYPES[unit.type];
-    const rate = meta.fireRate * state.upgrades.fireRate * (1 + (unit.level - 1) * 0.055);
-    const damage = meta.damage * state.upgrades.damage * (1 + (unit.level - 1) * 0.18);
+    const rate = meta.fireRate * state.upgrades.fireRate * (1 + (unit.level - 1) * 0.06);
+    const damage = meta.damage * state.upgrades.damage * (1 + (unit.level - 1) * 0.19);
     unit.cooldown = 1 / rate;
     unit.attackFlash = 1;
 
     if (unit.type === "guard") {
-      hitEnemy(target, damage, unit);
+      hitEnemy(target, damage, unit, { pierce: 0.1 });
       return;
     }
 
@@ -611,26 +795,30 @@ function updateUnits(dt) {
       x: unit.x + 12,
       y: unit.y - 12,
       target,
+      unitType: unit.type,
+      element: meta.element,
       damage,
-      speed: unit.type === "turret" ? 620 : 510,
-      color: unit.type === "turret" ? "#ffe05f" : "#f8f2cd",
-      splash: Math.random() < state.upgrades.splash,
+      speed: unit.type === "turret" ? 600 : 510,
+      color: ELEMENTS[meta.element].color,
+      splash: unit.type === "turret" || Math.random() < state.upgrades.splash,
+      slow: unit.type === "mage",
+      pierce: unit.type === "rifle" ? 0.55 : 0,
     });
   });
 }
 
 function healWithMedic(unit) {
   const wounded = state.units
-    .filter((ally) => ally.id !== unit.id && ally.hp < ally.maxHp && distance(unit, ally) <= 170 * state.upgrades.range)
+    .filter((ally) => ally.id !== unit.id && ally.hp < ally.maxHp && distance(unit, ally) <= 178 * state.upgrades.range)
     .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
 
   if (wounded && unit.cooldown <= 0) {
-    const heal = (23 + unit.level * 5) * state.upgrades.heal;
+    const heal = (25 + unit.level * 5.5) * state.upgrades.heal;
     wounded.hp = Math.min(wounded.maxHp, wounded.hp + heal);
-    unit.cooldown = 0.8 / state.upgrades.fireRate;
+    unit.cooldown = 0.78 / state.upgrades.fireRate;
     unit.attackFlash = 1;
     addFloater(wounded.x, wounded.y - 24, `+${Math.round(heal)}`, "#aaf2b0");
-    burst(wounded.x, wounded.y - 14, "#aaf2b0", 5);
+    burst(wounded.x, wounded.y - 14, "#aaf2b0", 6);
     return;
   }
 
@@ -642,28 +830,49 @@ function healWithMedic(unit) {
       x: unit.x + 12,
       y: unit.y - 10,
       target,
-      damage: (UNIT_TYPES.medic.damage + unit.level * 1.5) * state.upgrades.damage,
-      speed: 450,
-      color: "#9df3b4",
+      unitType: unit.type,
+      element: "wood",
+      damage: (UNIT_TYPES.medic.damage + unit.level * 1.7) * state.upgrades.damage,
+      speed: 460,
+      color: ELEMENTS.wood.color,
       splash: false,
+      slow: false,
+      pierce: 0,
     });
   }
 }
 
 function findTarget(unit) {
-  const range = UNIT_TYPES[unit.type].range * state.upgrades.range * (1 + (unit.level - 1) * 0.035);
+  const meta = UNIT_TYPES[unit.type];
+  const range = meta.range * state.upgrades.range * (1 + (unit.level - 1) * 0.04);
   return state.enemies
-    .filter((enemy) => enemy.hp > 0 && enemy.x >= unit.x - 28 && distance(unit, enemy) <= range)
-    .sort((a, b) => a.x - b.x)[0];
+    .filter((enemy) => enemy.hp > 0 && distance(unit, enemy) <= range)
+    .sort((a, b) => {
+      const pathA = WORLD.paths[a.pathIndex] || WORLD.paths[0];
+      const pathB = WORLD.paths[b.pathIndex] || WORLD.paths[0];
+      const closeA = a.progress / pathA.length;
+      const closeB = b.progress / pathB.length;
+      if (Math.abs(closeB - closeA) > 0.04) return closeB - closeA;
+      return distance(unit, a) - distance(unit, b);
+    })[0];
 }
 
 function updateEnemies(dt) {
   state.enemies.forEach((enemy) => {
     enemy.cooldown -= dt;
     enemy.attackFlash = Math.max(0, enemy.attackFlash - dt * 4);
+    enemy.slowTimer = Math.max(0, enemy.slowTimer - dt);
+
+    if (enemy.type === "sprout") {
+      enemy.regenClock += dt;
+      if (enemy.regenClock >= 1) {
+        enemy.regenClock = 0;
+        enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.maxHp * 0.018);
+      }
+    }
 
     const blocker = state.units
-      .filter((unit) => unit.hp > 0 && Math.abs(unit.y - enemy.y) < 42 && Math.abs(unit.x - enemy.x) < 34)
+      .filter((unit) => unit.hp > 0 && distance(unit, enemy) < (unit.type === "guard" ? 42 : 31))
       .sort((a, b) => b.hp - a.hp)[0];
 
     if (blocker) {
@@ -671,14 +880,17 @@ function updateEnemies(dt) {
       return;
     }
 
-    if (enemy.x <= WORLD.baseX + 28) {
+    const path = WORLD.paths[enemy.pathIndex] || WORLD.paths[0];
+    if (enemy.progress >= path.length - 18) {
       attackBase(enemy);
       return;
     }
 
-    const targetY = bridgeY(enemy.bridge);
-    enemy.y += (targetY - enemy.y) * Math.min(1, dt * 5);
-    enemy.x -= enemy.speed * dt;
+    const slowFactor = enemy.slowTimer > 0 ? 0.48 : 1;
+    enemy.progress += enemy.speed * slowFactor * dt;
+    const pos = pointOnPath(enemy.pathIndex, enemy.progress);
+    enemy.x = pos.x;
+    enemy.y = pos.y;
   });
 }
 
@@ -712,9 +924,13 @@ function updateProjectiles(dt) {
     const dist = Math.hypot(dx, dy);
     const travel = projectile.speed * dt;
     if (dist <= travel || dist < 8) {
-      hitEnemy(target, projectile.damage, projectile);
+      hitEnemy(target, projectile.damage, projectile, projectile);
+      if (projectile.slow) {
+        target.slowTimer = Math.max(target.slowTimer, 1.8);
+        addFloater(target.x, target.y - 34, "缓速", ELEMENTS.water.color);
+      }
       projectile.dead = true;
-      if (projectile.splash) splashDamage(target, projectile.damage * 0.44);
+      if (projectile.splash) splashDamage(target, projectile.damage * (projectile.unitType === "turret" ? 0.55 : 0.42), projectile);
       return;
     }
     projectile.x += (dx / dist) * travel;
@@ -723,19 +939,29 @@ function updateProjectiles(dt) {
   state.projectiles = state.projectiles.filter((projectile) => !projectile.dead);
 }
 
-function hitEnemy(enemy, rawDamage, source) {
-  const damage = Math.max(1, rawDamage - enemy.armor);
-  enemy.hp -= damage;
-  enemy.attackFlash = Math.max(enemy.attackFlash, 0.45);
-  burst(enemy.x, enemy.y - 8, source.color || "#f8f2cd", 4);
+function elementMultiplier(attackerElement, defenderElement) {
+  if (!attackerElement || !defenderElement) return 1;
+  if (ELEMENTS[attackerElement].beats === defenderElement) return 1.35 + state.upgrades.elementPower;
+  if (ELEMENTS[defenderElement].beats === attackerElement) return 0.76;
+  return 1 + (state.elementBoost[attackerElement] || 0);
 }
 
-function splashDamage(origin, damage) {
+function hitEnemy(enemy, rawDamage, source, options = {}) {
+  const attackerElement = source.element || UNIT_TYPES[source.type]?.element;
+  const multiplier = elementMultiplier(attackerElement, enemy.element);
+  const armor = enemy.armor * (1 - (options.pierce || 0));
+  const damage = Math.max(1, rawDamage * multiplier - armor);
+  enemy.hp -= damage;
+  enemy.attackFlash = Math.max(enemy.attackFlash, 0.45);
+  if (multiplier > 1.2) addFloater(enemy.x, enemy.y - 32, "克制", ELEMENTS[attackerElement].color);
+  burst(enemy.x, enemy.y - 8, source.color || ELEMENTS[attackerElement]?.color || "#f8f2cd", multiplier > 1.2 ? 7 : 4);
+}
+
+function splashDamage(origin, damage, source) {
   state.enemies.forEach((enemy) => {
     if (enemy.id === origin.id || enemy.hp <= 0) return;
-    if (Math.abs(enemy.x - origin.x) < 66 && Math.abs(enemy.y - origin.y) < 48) {
-      enemy.hp -= Math.max(1, damage - enemy.armor);
-      burst(enemy.x, enemy.y, "#ffcc69", 3);
+    if (Math.abs(enemy.x - origin.x) < 70 && Math.abs(enemy.y - origin.y) < 52) {
+      hitEnemy(enemy, damage, source, { pierce: source.pierce || 0 });
     }
   });
 }
@@ -758,16 +984,27 @@ function removeDead() {
     state.coins += enemy.reward;
     state.lifetimeCoins += enemy.reward;
     addFloater(enemy.x, enemy.y - 22, `+${enemy.reward}`, "#ffe28e");
-    burst(enemy.x, enemy.y, "#f1c85b", 12);
+    burst(enemy.x, enemy.y, ELEMENTS[enemy.element].color, 14);
+    if (enemy.type === "cinder") explodeEnemy(enemy);
   });
   state.enemies = survivors;
+}
+
+function explodeEnemy(enemy) {
+  state.units.forEach((unit) => {
+    if (distance(unit, enemy) < 72) {
+      unit.hp -= enemy.damage * 0.55;
+      addFloater(unit.x, unit.y - 28, "爆", ELEMENTS.fire.color);
+    }
+  });
+  burst(enemy.x, enemy.y, ELEMENTS.fire.color, 18);
 }
 
 function checkUpgradeChoice() {
   if (state.lifetimeCoins < state.nextChoiceAt || state.modalOpen || state.gameOver) return;
   state.modalOpen = true;
   state.choices += 1;
-  state.nextChoiceAt += 700;
+  state.nextChoiceAt += 750;
   showChoiceCards();
 }
 
@@ -786,15 +1023,101 @@ function showChoiceCards() {
     `;
     card.addEventListener("click", () => {
       upgrade.apply();
-      state.modalOpen = false;
-      ui.choiceModal.hidden = true;
+      closeModal();
       showToast(upgrade.title);
+      saveGame();
       updateUi();
     });
     ui.choiceGrid.appendChild(card);
   });
-  ui.choiceNote.textContent = "每收集 700 金币可选择一次能力加成";
+  ui.choiceNote.textContent = "每收集 750 金币可选择一次能力加成";
   ui.choiceModal.hidden = false;
+}
+
+function showGiftPanel() {
+  if (state.modalOpen || state.gameOver) return;
+  state.modalOpen = true;
+  ui.choiceTitle.textContent = "天降补给";
+  ui.choiceGrid.innerHTML = "";
+
+  const rewards = buildGiftRewards().sort(() => Math.random() - 0.5).slice(0, 3);
+  rewards.forEach((reward) => {
+    const card = document.createElement("button");
+    card.className = "choice-card";
+    card.type = "button";
+    card.innerHTML = `
+      <span class="choice-icon" aria-hidden="true"></span>
+      <strong>${reward.title}</strong>
+      <span>${reward.desc}</span>
+    `;
+    card.addEventListener("click", () => {
+      reward.apply();
+      closeModal();
+      showToast(reward.title);
+      saveGame();
+      updateUi();
+    });
+    ui.choiceGrid.appendChild(card);
+  });
+  ui.choiceNote.textContent = "每 60 秒出现一次，奖励随机";
+  ui.choiceModal.hidden = false;
+}
+
+function buildGiftRewards() {
+  const randomType = Object.keys(UNIT_TYPES)[Math.floor(Math.random() * Object.keys(UNIT_TYPES).length)];
+  const randomElement = ELEMENT_ORDER[Math.floor(Math.random() * ELEMENT_ORDER.length)];
+  return [
+    {
+      title: `金币补给 +${180 + state.territory * 45}`,
+      desc: "直接获得一笔金币",
+      apply: () => {
+        const gain = 180 + state.territory * 45;
+        state.coins += gain;
+        state.lifetimeCoins += gain;
+      },
+    },
+    {
+      title: `免费援军：${UNIT_TYPES[randomType].name}`,
+      desc: "立即获得一个随机兵种",
+      apply: () => {
+        const x = WORLD.deployLeft + rand(50, 160);
+        const y = pathY(Math.floor(Math.random() * activePathCount()), 0.62) + rand(-44, 44);
+        spawnUnit(randomType, x, y, true);
+      },
+    },
+    {
+      title: `${ELEMENTS[randomElement].label}行祝福`,
+      desc: `${ELEMENTS[randomElement].label}属性伤害永久 +12%`,
+      apply: () => {
+        state.elementBoost[randomElement] += 0.12;
+      },
+    },
+    {
+      title: "全军整备",
+      desc: "所有现有单位升 1 级并回满血",
+      apply: () => {
+        state.units.forEach((unit) => {
+          unit.level += 1;
+          unit.maxHp *= 1.08;
+          unit.hp = unit.maxHp;
+          burst(unit.x, unit.y, ELEMENTS[UNIT_TYPES[unit.type].element].color, 6);
+        });
+      },
+    },
+    {
+      title: "城门急修",
+      desc: "修复城门并提高少量上限",
+      apply: () => {
+        state.baseMaxHp += 80;
+        state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 260);
+      },
+    },
+  ];
+}
+
+function closeModal() {
+  state.modalOpen = false;
+  ui.choiceModal.hidden = true;
 }
 
 function checkGameOver() {
@@ -806,6 +1129,7 @@ function checkGameOver() {
     state.bestWave = state.wave;
     localStorage.setItem("endlessDefenseBestWave", String(state.wave));
   }
+  localStorage.removeItem(SAVE_KEY);
   ui.endTitle.textContent = `守到第 ${state.wave} 波`;
   ui.endStats.textContent = `占领 ${state.territory} 块领地，击败 ${state.kills} 个敌人`;
   ui.gameOver.hidden = false;
@@ -860,6 +1184,7 @@ function updateUi() {
   ui.base.textContent = `${Math.ceil(state.baseHp)}/${state.baseMaxHp}`;
   ui.cap.textContent = `兵力 ${currentUnitCount()}/${state.unitCap}`;
   ui.best.textContent = `最佳 ${Math.max(state.bestWave, state.wave)}`;
+  ui.gift.textContent = `惊喜 ${Math.ceil(state.giftTimer)}s`;
   ui.pauseIcon.textContent = state.paused ? "▶" : "II";
   ui.pauseBtn.setAttribute("aria-label", state.paused ? "继续" : "暂停");
   ui.speedBtn.textContent = `${state.speed}x`;
@@ -890,7 +1215,7 @@ function render() {
   ctx.clearRect(0, 0, w, h);
   drawBackground(w, h);
   drawMapNodes(w, h);
-  drawBridges(w, h);
+  drawPaths();
   drawBase(w, h);
   drawEnemyFort(w, h);
   drawEntities();
@@ -916,9 +1241,9 @@ function drawBackground(w, h) {
   ctx.fillRect(0, h * 0.25, w, h * 0.75);
 
   ctx.fillStyle = "rgba(57, 91, 99, 0.92)";
-  roundRect(WORLD.baseX + 42, h * 0.32, w - WORLD.baseX - 86, h * 0.42, 20, true, false);
+  roundRect(WORLD.baseX + 42, h * 0.31, w - WORLD.baseX - 86, h * 0.47, 22, true, false);
   ctx.fillStyle = "rgba(70, 112, 119, 0.75)";
-  roundRect(WORLD.baseX + 54, h * 0.34, w - WORLD.baseX - 110, h * 0.38, 18, true, false);
+  roundRect(WORLD.baseX + 54, h * 0.33, w - WORLD.baseX - 110, h * 0.43, 20, true, false);
 
   ctx.fillStyle = "rgba(222, 188, 102, 0.16)";
   roundRect(WORLD.deployLeft - 24, WORLD.deployTop - 28, WORLD.deployRight - WORLD.deployLeft + 48, WORLD.deployBottom - WORLD.deployTop + 56, 12, true, false);
@@ -933,23 +1258,24 @@ function drawHill(x, y, width, height) {
 }
 
 function drawMapNodes(w, h) {
-  const count = 7;
-  const startX = w * 0.18;
-  const endX = w * 0.82;
+  const count = 8;
+  const startX = w * 0.17;
+  const endX = w * 0.83;
   const y = h * 0.2;
   for (let i = 0; i < count; i += 1) {
     const x = startX + ((endX - startX) / (count - 1)) * i;
     if (i > 0) {
+      const prevX = startX + ((endX - startX) / (count - 1)) * (i - 1);
       ctx.strokeStyle = i < state.territory ? "#f0ba3e" : "rgba(32, 26, 18, 0.35)";
       ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.moveTo(startX + ((endX - startX) / (count - 1)) * (i - 1), y);
-      ctx.lineTo(x, y);
+      ctx.moveTo(prevX, y);
+      ctx.lineTo(x, y + Math.sin(i) * 7);
       ctx.stroke();
     }
     ctx.fillStyle = i < state.territory ? "#f0ba3e" : "#8c7b58";
     ctx.beginPath();
-    ctx.arc(x, y, i + 1 === state.territory ? 11 : 8, 0, Math.PI * 2);
+    ctx.arc(x, y + Math.sin(i) * 7, i + 1 === state.territory ? 11 : 8, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = "#1b1713";
     ctx.lineWidth = 3;
@@ -957,32 +1283,45 @@ function drawMapNodes(w, h) {
   }
 }
 
-function drawBridges(w) {
-  WORLD.bridges.forEach((bridge, index) => {
-    const active = index < activeBridgeCount();
-    const x = WORLD.baseX + 44;
-    const width = w - x - 78;
-    ctx.fillStyle = active ? "#c99a58" : "rgba(95, 79, 55, 0.42)";
-    roundRect(x, bridge.y - 21, width, 42, 8, true, false);
+function drawPaths() {
+  WORLD.paths.forEach((path, index) => {
+    const active = index < activePathCount();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = active ? "#c99a58" : "rgba(95, 79, 55, 0.42)";
+    ctx.lineWidth = 42;
+    drawPathStroke(path);
     ctx.strokeStyle = "#1b1713";
-    ctx.lineWidth = 4;
-    roundRect(x, bridge.y - 21, width, 42, 8, false, true);
+    ctx.lineWidth = 5;
+    drawPathStroke(path);
 
-    for (let plankX = x + 18; plankX < x + width - 10; plankX += 36) {
-      ctx.strokeStyle = active ? "#73502e" : "rgba(37, 28, 20, 0.4)";
+    if (active) {
+      ctx.strokeStyle = "rgba(115, 80, 46, 0.58)";
       ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(plankX, bridge.y - 20);
-      ctx.lineTo(plankX + 8, bridge.y + 20);
-      ctx.stroke();
+      for (let s = 26; s < path.length - 20; s += 42) {
+        const p = pointOnPath(index, s);
+        ctx.beginPath();
+        ctx.moveTo(p.x - 9, p.y - 18);
+        ctx.lineTo(p.x + 9, p.y + 18);
+        ctx.stroke();
+      }
     }
   });
+}
+
+function drawPathStroke(path) {
+  ctx.beginPath();
+  path.points.forEach((point, index) => {
+    if (index === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
+  });
+  ctx.stroke();
 }
 
 function drawBase(w, h) {
   const x = WORLD.baseX - 54;
   const top = h * 0.34;
-  const bottom = h * 0.75;
+  const bottom = h * 0.76;
   ctx.fillStyle = "#c69050";
   roundRect(x, top, 82, bottom - top, 8, true, false);
   ctx.strokeStyle = "#1b1713";
@@ -1013,8 +1352,8 @@ function drawBase(w, h) {
 
 function drawEnemyFort(w, h) {
   const x = w - 52;
-  const top = h * 0.32;
-  const bottom = h * 0.76;
+  const top = h * 0.31;
+  const bottom = h * 0.78;
   ctx.fillStyle = "#716a52";
   roundRect(x, top, 42, bottom - top, 6, true, true);
   ctx.fillStyle = "#3c3329";
@@ -1031,8 +1370,10 @@ function drawEntities() {
 
 function drawUnit(unit) {
   const meta = UNIT_TYPES[unit.type];
+  const elem = ELEMENTS[meta.element];
   const selected = state.selectedId === unit.id;
-  const bob = Math.sin(state.time * 4 + unit.id) * 1.5;
+  const scale = 1 + Math.min(unit.level - 1, 8) * 0.045;
+  const bob = Math.sin(state.time * 4 + unit.id) * 1.4;
   const x = unit.x;
   const y = unit.y + bob;
 
@@ -1040,55 +1381,56 @@ function drawUnit(unit) {
     ctx.strokeStyle = "rgba(255, 226, 110, 0.72)";
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(x, y + 1, UNIT_TYPES[unit.type].range * state.upgrades.range * 0.35, 0, Math.PI * 2);
+    ctx.arc(x, y + 1, meta.range * state.upgrades.range * 0.38, 0, Math.PI * 2);
     ctx.stroke();
   }
 
   ctx.save();
   ctx.translate(x, y);
+  ctx.scale(scale, scale);
   ctx.fillStyle = "rgba(0,0,0,0.22)";
   ctx.beginPath();
-  ctx.ellipse(0, 16, 21, 7, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 17, 22, 7, 0, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = meta.color;
-  roundRect(-14, -3, 28, 26, 8, true, false);
+  roundRect(-15, -4, 30, 28, 8, true, false);
   ctx.strokeStyle = selected ? "#ffe26e" : "#1b1713";
   ctx.lineWidth = selected ? 4 : 3;
-  roundRect(-14, -3, 28, 26, 8, false, true);
+  roundRect(-15, -4, 30, 28, 8, false, true);
 
   ctx.fillStyle = "#f3bd75";
   ctx.beginPath();
-  ctx.arc(0, -13, 15, 0, Math.PI * 2);
+  ctx.arc(0, -14, 15, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = "#1b1713";
   ctx.lineWidth = 3;
   ctx.stroke();
 
   ctx.fillStyle = "#1b1713";
-  ctx.fillRect(-6, -16, 3, 7);
-  ctx.fillRect(5, -16, 3, 7);
+  ctx.fillRect(-6, -17, 3, 7);
+  ctx.fillRect(5, -17, 3, 7);
+  drawUnitWeapon(unit.type, unit.attackFlash);
 
-  if (unit.type === "guard") {
-    ctx.fillStyle = "#8fb0bd";
-    roundRect(11, -12, 15, 30, 7, true, true);
-  } else if (unit.type === "medic") {
-    ctx.fillStyle = "#f1f1d8";
-    ctx.fillRect(-13, -30, 26, 6);
-    ctx.fillStyle = "#cf4740";
-    ctx.fillRect(-2, -34, 4, 14);
-    ctx.fillRect(-7, -29, 14, 4);
-  } else {
-    ctx.strokeStyle = unit.attackFlash > 0 ? "#ffdf5b" : "#1b1713";
-    ctx.lineWidth = 6;
+  ctx.fillStyle = elem.color;
+  ctx.strokeStyle = "#1b1713";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(-16, -28, 10, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#1b1713";
+  ctx.font = "900 12px Microsoft YaHei, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(elem.label, -16, -24);
+
+  for (let i = 0; i < Math.min(3, unit.level - 1); i += 1) {
+    ctx.fillStyle = "#ffe28e";
     ctx.beginPath();
-    ctx.moveTo(7, 0);
-    ctx.lineTo(31, -12);
-    ctx.stroke();
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(16, 5);
-    ctx.lineTo(37, -7);
+    ctx.arc(12 + i * 7, -29, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#1b1713";
+    ctx.lineWidth = 1.5;
     ctx.stroke();
   }
 
@@ -1096,18 +1438,63 @@ function drawUnit(unit) {
   ctx.strokeStyle = "#1b1713";
   ctx.lineWidth = 3;
   ctx.font = "900 11px Microsoft YaHei, sans-serif";
-  ctx.textAlign = "center";
-  ctx.strokeText(String(unit.level), 0, 28);
-  ctx.fillText(String(unit.level), 0, 28);
+  ctx.strokeText(String(unit.level), 0, 31);
+  ctx.fillText(String(unit.level), 0, 31);
   ctx.restore();
 
-  drawHpBar(unit.x - 22, unit.y - 43, 44, unit.hp / unit.maxHp, "#77cf8a");
+  drawHpBar(unit.x - 23, unit.y - 47 - (scale - 1) * 18, 46, unit.hp / unit.maxHp, "#77cf8a");
+}
+
+function drawUnitWeapon(type, flash) {
+  if (type === "guard") {
+    ctx.fillStyle = "#8fb0bd";
+    roundRect(11, -12, 17, 32, 7, true, true);
+    ctx.fillStyle = "#c69b62";
+    ctx.fillRect(16, -4, 7, 18);
+  } else if (type === "medic") {
+    ctx.fillStyle = "#f1f1d8";
+    ctx.fillRect(-13, -31, 26, 6);
+    ctx.fillStyle = "#61b86a";
+    ctx.fillRect(-2, -35, 4, 14);
+    ctx.fillRect(-7, -30, 14, 4);
+  } else if (type === "mage") {
+    ctx.strokeStyle = "#1b1713";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(14, 5);
+    ctx.lineTo(31, -24);
+    ctx.stroke();
+    ctx.fillStyle = flash > 0 ? "#e2fbff" : ELEMENTS.water.color;
+    ctx.beginPath();
+    ctx.arc(33, -27, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (type === "turret") {
+    ctx.fillStyle = "#4f4b3c";
+    roundRect(5, -8, 30, 13, 4, true, true);
+    ctx.fillStyle = flash > 0 ? "#ffe05f" : "#2b2924";
+    roundRect(28, -10, 18, 8, 4, true, true);
+  } else {
+    ctx.strokeStyle = flash > 0 ? "#ffdf5b" : "#1b1713";
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(7, 0);
+    ctx.lineTo(34, -13);
+    ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(12, -7);
+    ctx.lineTo(28, 5);
+    ctx.stroke();
+  }
 }
 
 function drawEnemy(enemy) {
+  const meta = ENEMY_TYPES[enemy.type];
+  const elem = ELEMENTS[enemy.element];
   const x = enemy.x;
   const y = enemy.y + Math.sin(state.time * enemy.speed * 0.06 + enemy.id) * 2;
-  const scale = enemy.type === "boss" ? 1.35 : enemy.type === "brute" ? 1.15 : 1;
+  const scale = enemy.type === "boss" ? 1.38 : enemy.type === "golem" ? 1.22 : enemy.type === "shell" ? 1.12 : 1;
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(scale, scale);
@@ -1117,41 +1504,78 @@ function drawEnemy(enemy) {
   ctx.ellipse(0, 17, 22, 7, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = enemy.attackFlash > 0 ? "#f07f57" : enemy.color;
+  ctx.fillStyle = enemy.attackFlash > 0 ? "#f07f57" : meta.color;
   roundRect(-17, -22, 34, 42, 14, true, false);
-  ctx.strokeStyle = "#1b1713";
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = enemy.slowTimer > 0 ? ELEMENTS.water.color : "#1b1713";
+  ctx.lineWidth = enemy.slowTimer > 0 ? 5 : 3;
   roundRect(-17, -22, 34, 42, 14, false, true);
 
   ctx.fillStyle = "#1b1713";
   ctx.fillRect(-8, -9, 4, 9);
   ctx.fillRect(5, -9, 4, 9);
+  drawEnemyTrait(enemy.type);
 
-  ctx.strokeStyle = "#7a251c";
-  ctx.lineWidth = 5;
+  ctx.fillStyle = elem.color;
+  ctx.strokeStyle = "#1b1713";
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(-20, 7);
-  ctx.lineTo(-36, 18);
+  ctx.arc(0, -34, 10, 0, Math.PI * 2);
+  ctx.fill();
   ctx.stroke();
+  ctx.fillStyle = "#1b1713";
+  ctx.font = "900 12px Microsoft YaHei, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(elem.label, 0, -30);
+  ctx.restore();
 
-  if (enemy.type === "shield") {
-    ctx.fillStyle = "#b8ced2";
-    roundRect(-4, -26, 24, 30, 7, true, true);
-  }
-  if (enemy.type === "boss") {
+  drawHpBar(x - 25 * scale, y - 50 * scale, 50 * scale, enemy.hp / enemy.maxHp, "#e85c4f");
+}
+
+function drawEnemyTrait(type) {
+  if (type === "sprout") {
+    ctx.strokeStyle = "#2d6b2f";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-13, 2);
+    ctx.quadraticCurveTo(-27, -7, -20, -19);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(13, 2);
+    ctx.quadraticCurveTo(27, -7, 20, -19);
+    ctx.stroke();
+  } else if (type === "cinder") {
+    ctx.fillStyle = "#ffce5a";
+    ctx.beginPath();
+    ctx.moveTo(-8, -22);
+    ctx.quadraticCurveTo(0, -43, 9, -22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (type === "tide") {
+    ctx.strokeStyle = "#d9fbff";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(-2, 0, 19, Math.PI * 0.2, Math.PI * 1.1);
+    ctx.stroke();
+  } else if (type === "shell") {
+    ctx.fillStyle = "#e2decf";
+    roundRect(-19, -18, 14, 36, 5, true, true);
+  } else if (type === "golem") {
+    ctx.fillStyle = "#6b5038";
+    ctx.fillRect(-23, 4, 10, 18);
+    ctx.fillRect(13, 4, 10, 18);
+  } else if (type === "boss") {
     ctx.fillStyle = "#f0ba3e";
     ctx.beginPath();
-    ctx.moveTo(-18, -24);
-    ctx.lineTo(-8, -40);
+    ctx.moveTo(-19, -24);
+    ctx.lineTo(-10, -42);
     ctx.lineTo(0, -24);
-    ctx.lineTo(10, -40);
-    ctx.lineTo(18, -24);
+    ctx.lineTo(10, -42);
+    ctx.lineTo(19, -24);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
   }
-  ctx.restore();
-  drawHpBar(x - 24 * scale, y - 45 * scale, 48 * scale, enemy.hp / enemy.maxHp, "#e85c4f");
 }
 
 function drawHpBar(x, y, width, pct, color) {
@@ -1228,9 +1652,7 @@ function pointerPosition(event) {
 }
 
 function unitAt(x, y) {
-  return [...state.units]
-    .reverse()
-    .find((unit) => Math.hypot(unit.x - x, unit.y - y) <= 30);
+  return [...state.units].reverse().find((unit) => Math.hypot(unit.x - x, unit.y - y) <= 32);
 }
 
 function handlePointerDown(event) {
@@ -1262,7 +1684,99 @@ function handlePointerMove(event) {
 }
 
 function handlePointerUp() {
+  if (state.draggingId) saveGame();
   state.draggingId = null;
+}
+
+function saveGame() {
+  if (!state || state.gameOver) return;
+  const payload = {
+    version: 3,
+    wave: state.wave,
+    bridgeCount: state.bridgeCount,
+    territory: state.territory,
+    canClaim: state.canClaim,
+    giftTimer: state.giftTimer,
+    coins: state.coins,
+    lifetimeCoins: state.lifetimeCoins,
+    nextChoiceAt: state.nextChoiceAt,
+    choices: state.choices,
+    kills: state.kills,
+    baseHp: state.baseHp,
+    baseMaxHp: state.baseMaxHp,
+    unitCap: state.unitCap,
+    bought: state.bought,
+    tech: state.tech,
+    upgrades: state.upgrades,
+    elementBoost: state.elementBoost,
+    bestWave: state.bestWave,
+    units: state.units.map((unit) => ({
+      type: unit.type,
+      level: unit.level,
+      x: WORLD.width ? unit.x / WORLD.width : 0.35,
+      y: WORLD.height ? unit.y / WORLD.height : 0.55,
+      hpRatio: unit.maxHp ? unit.hp / unit.maxHp : 1,
+    })),
+  };
+  localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
+}
+
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const saved = JSON.parse(raw);
+    if (!saved || saved.version !== 3) return false;
+
+    state.wave = saved.wave || 0;
+    state.bridgeCount = saved.bridgeCount || 1;
+    state.territory = saved.territory || 1;
+    state.canClaim = !!saved.canClaim;
+    state.giftTimer = saved.giftTimer || 60;
+    state.coins = saved.coins ?? state.coins;
+    state.lifetimeCoins = saved.lifetimeCoins || 0;
+    state.nextChoiceAt = saved.nextChoiceAt || 750;
+    state.choices = saved.choices || 0;
+    state.kills = saved.kills || 0;
+    state.baseHp = saved.baseHp || state.baseHp;
+    state.baseMaxHp = saved.baseMaxHp || state.baseMaxHp;
+    state.unitCap = saved.unitCap || state.unitCap;
+    state.bought = { ...state.bought, ...(saved.bought || {}) };
+    state.tech = { ...state.tech, ...(saved.tech || {}) };
+    state.upgrades = { ...state.upgrades, ...(saved.upgrades || {}) };
+    state.elementBoost = { ...state.elementBoost, ...(saved.elementBoost || {}) };
+    state.bestWave = Math.max(state.bestWave, saved.bestWave || 0);
+    state.nextWaveDelay = 1.2;
+    state.spawnQueue = [];
+    state.enemies = [];
+
+    state.units = (saved.units || [])
+      .filter((unit) => UNIT_TYPES[unit.type])
+      .map((unit) => {
+        const meta = UNIT_TYPES[unit.type];
+        const maxHp = meta.hp * state.upgrades.hp * Math.pow(1.17, Math.max(0, unit.level - 1));
+        const hp = maxHp * clamp(unit.hpRatio ?? 1, 0.05, 1);
+        return {
+          id: entityId++,
+          side: "unit",
+          type: unit.type,
+          level: unit.level || 1,
+          x: clampDeployX((unit.x || 0.35) * WORLD.width),
+          y: clampDeployY((unit.y || 0.55) * WORLD.height),
+          targetX: clampDeployX((unit.x || 0.35) * WORLD.width),
+          targetY: clampDeployY((unit.y || 0.55) * WORLD.height),
+          hp,
+          maxHp,
+          cooldown: rand(0.05, 0.35),
+          attackFlash: 0,
+          selectedPulse: rand(0, Math.PI * 2),
+        };
+      });
+    state.selectedId = state.units[0]?.id || null;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function loop(timestamp) {
@@ -1275,18 +1789,27 @@ function loop(timestamp) {
 }
 
 function restart() {
-  state = newState();
+  localStorage.removeItem(SAVE_KEY);
+  state = createDefaultState();
   entityId = 1;
+  resizeCanvas();
   ui.gameOver.hidden = true;
   ui.choiceModal.hidden = true;
-  spawnUnit("rifle", WORLD.deployLeft + 62, bridgeY(0) - 44);
-  spawnUnit("guard", WORLD.deployLeft + 96, bridgeY(0) + 4);
+  spawnStarterUnits();
   showToast("新的防线已建立");
+  saveGame();
   updateUi();
 }
 
+function spawnStarterUnits() {
+  spawnUnit("rifle", WORLD.deployLeft + 60, pathY(0, 0.72) - 46, true);
+  spawnUnit("guard", WORLD.deployLeft + 96, pathY(0, 0.72) + 4, true);
+  spawnUnit("mage", WORLD.deployLeft + 128, pathY(0, 0.72) + 50, true);
+  spawnUnit("medic", WORLD.deployLeft + 82, pathY(0, 0.72) + 88, true);
+}
+
 function init() {
-  state = newState();
+  state = createDefaultState();
   resizeCanvas();
   if (resizeObserver) resizeObserver.disconnect();
   resizeObserver = new ResizeObserver(resizeCanvas);
@@ -1313,11 +1836,30 @@ function init() {
   canvas.addEventListener("pointerup", handlePointerUp);
   canvas.addEventListener("pointercancel", handlePointerUp);
 
-  spawnUnit("rifle", WORLD.deployLeft + 62, bridgeY(0) - 44);
-  spawnUnit("guard", WORLD.deployLeft + 96, bridgeY(0) + 4);
+  if (!loadGame() || state.units.length === 0) {
+    spawnStarterUnits();
+    saveGame();
+  } else {
+    showToast("已读取存档");
+  }
+
   updateUi();
   requestAnimationFrame(loop);
 }
 
-window.addEventListener("resize", resizeCanvas);
+window.addEventListener("resize", () => {
+  const ratios = state?.units?.map((unit) => ({
+    unit,
+    x: WORLD.width ? unit.x / WORLD.width : 0.35,
+    y: WORLD.height ? unit.y / WORLD.height : 0.55,
+  })) || [];
+  resizeCanvas();
+  ratios.forEach(({ unit, x, y }) => {
+    unit.x = clampDeployX(x * WORLD.width);
+    unit.y = clampDeployY(y * WORLD.height);
+    unit.targetX = unit.x;
+    unit.targetY = unit.y;
+  });
+});
+
 init();

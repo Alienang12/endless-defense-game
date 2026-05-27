@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>无尽守线</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="game-shell" aria-label="无尽守线">
+      <section class="stage" aria-label="战场">
+        <canvas id="gameCanvas"></canvas>
+
+        <div class="topbar">
+          <div class="metric">
+            <span>金币</span>
+            <strong id="coinText">0</strong>
+          </div>
+          <div class="metric">
+            <span>波次</span>
+            <strong id="waveText">1</strong>
+          </div>
+          <div class="metric metric-wide">
+            <span>城门</span>
+            <strong id="baseText">500/500</strong>
+          </div>
+          <button class="icon-btn" id="pauseBtn" type="button" aria-label="暂停">
+            <span id="pauseIcon">II</span>
+          </button>
+          <button class="icon-btn" id="speedBtn" type="button" aria-label="切换速度">1x</button>
+        </div>
+
+        <div class="wave-ribbon" id="waveRibbon">第 1 波</div>
+        <div class="toast" id="toast" aria-live="polite"></div>
+
+        <div class="game-over" id="gameOver" hidden>
+          <div class="end-panel">
+            <p class="end-kicker">城门失守</p>
+            <h1 id="endTitle">守到第 1 波</h1>
+            <p id="endStats">击败 0 个敌人</p>
+            <button id="restartBtn" type="button">重新开始</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="command-panel" aria-label="指挥区">
+        <div class="shop-grid">
+          <button class="shop-card" type="button" data-buy="rifle">
+            <span class="unit-mark rifle-mark"></span>
+            <strong>步枪兵</strong>
+            <small id="cost-rifle">60</small>
+          </button>
+          <button class="shop-card" type="button" data-buy="guard">
+            <span class="unit-mark guard-mark"></span>
+            <strong>盾卫</strong>
+            <small id="cost-guard">90</small>
+          </button>
+          <button class="shop-card" type="button" data-buy="medic">
+            <span class="unit-mark medic-mark"></span>
+            <strong>医师</strong>
+            <small id="cost-medic">120</small>
+          </button>
+          <button class="shop-card" type="button" data-buy="turret">
+            <span class="unit-mark turret-mark"></span>
+            <strong>机枪塔</strong>
+            <small id="cost-turret">180</small>
+          </button>
+        </div>
+
+        <div class="status-strip">
+          <span id="capText">兵力 0/12</span>
+          <span id="buffText">攻击 x1.00</span>
+          <span id="bestText">最佳 0</span>
+        </div>
+      </section>
+
+      <div class="choice-modal" id="choiceModal" hidden>
+        <div class="choice-panel">
+          <p class="choice-kicker">请选择能力加成</p>
+          <div class="choice-grid" id="choiceGrid"></div>
+          <p class="choice-note" id="choiceNote">每收集 600 金币可选择一次能力加成</p>
+        </div>
+      </div>
+    </main>
+
+    <script src="./game.js"></script>
+  </body>
+</html>

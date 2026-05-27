@@ -29,6 +29,15 @@ const ui = {
   upgradeSelectedBtn: document.getElementById("upgradeSelectedBtn"),
   techBtn: document.getElementById("techBtn"),
   claimBtn: document.getElementById("claimBtn"),
+  saveBtn: document.getElementById("saveBtn"),
+  exportBtn: document.getElementById("exportBtn"),
+  importBtn: document.getElementById("importBtn"),
+  saveModal: document.getElementById("saveModal"),
+  saveTitle: document.getElementById("saveTitle"),
+  saveText: document.getElementById("saveText"),
+  copySaveBtn: document.getElementById("copySaveBtn"),
+  loadSaveBtn: document.getElementById("loadSaveBtn"),
+  closeSaveBtn: document.getElementById("closeSaveBtn"),
   gameOver: document.getElementById("gameOver"),
   endTitle: document.getElementById("endTitle"),
   endStats: document.getElementById("endStats"),
@@ -192,6 +201,13 @@ const ENEMY_TYPES = {
   },
 };
 
+const BIOMES = [
+  { land: "#5d8b4a", hill: "#4f7446", water: "#466f77", water2: "#527f85", path: "#c99a58" },
+  { land: "#6f8549", hill: "#5c7143", water: "#3f6d78", water2: "#497c87", path: "#bfa05d" },
+  { land: "#4f8764", hill: "#407356", water: "#3d697d", water2: "#49798f", path: "#c38c58" },
+  { land: "#756f4a", hill: "#625d3d", water: "#4b6370", water2: "#576f7d", path: "#b88654" },
+];
+
 const TECHS = [
   {
     id: "arms",
@@ -337,7 +353,7 @@ function createDefaultState() {
     bridgeCount: 1,
     territory: 1,
     canClaim: false,
-    giftTimer: 60,
+    wavesUntilGift: 3,
     coins: 280,
     lifetimeCoins: 0,
     nextChoiceAt: 750,
@@ -398,24 +414,27 @@ function rebuildPaths() {
   const w = WORLD.width;
   const h = WORLD.height;
   const endX = WORLD.baseX + 32;
+  const t = state?.territory || 1;
+  const shift = ((t - 1) % 4) * 0.035;
+  const wobble = Math.sin(t * 1.7) * 0.055;
   WORLD.paths = [
     buildPath([
-      [w - 34, h * 0.34],
-      [w * 0.82, h * 0.39],
-      [w * 0.69, h * 0.32],
-      [w * 0.56, h * 0.48],
-      [w * 0.42, h * 0.41],
-      [w * 0.3, h * 0.54],
-      [endX, h * 0.48],
+      [w - 34, h * (0.32 + wobble)],
+      [w * 0.84, h * (0.39 + shift)],
+      [w * 0.7, h * (0.3 + wobble)],
+      [w * 0.58, h * (0.5 - shift)],
+      [w * 0.43, h * (0.39 + shift)],
+      [w * 0.31, h * (0.55 - wobble)],
+      [endX, h * (0.48 + shift * 0.5)],
     ]),
     buildPath([
-      [w - 34, h * 0.72],
-      [w * 0.82, h * 0.64],
-      [w * 0.68, h * 0.76],
-      [w * 0.55, h * 0.61],
-      [w * 0.4, h * 0.72],
-      [w * 0.29, h * 0.58],
-      [endX, h * 0.6],
+      [w - 34, h * (0.72 - wobble)],
+      [w * 0.83, h * (0.63 - shift)],
+      [w * 0.68, h * (0.77 + wobble)],
+      [w * 0.55, h * (0.59 + shift)],
+      [w * 0.39, h * (0.73 - shift)],
+      [w * 0.29, h * (0.57 + wobble)],
+      [endX, h * (0.6 - shift * 0.4)],
     ]),
   ];
 }
@@ -613,6 +632,7 @@ function claimTerritory() {
   state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 170);
   if (state.territory % 2 === 0) state.unitCap += 1;
   state.bridgeCount = state.territory >= 3 ? 2 : 1;
+  rebuildPaths();
   burst(WORLD.width * 0.62, WORLD.height * 0.22, "#ffe28e", 24);
   showToast(`占领第 ${state.territory} 块领地`);
   saveGame();
@@ -621,6 +641,15 @@ function claimTerritory() {
 
 function scheduleWave() {
   state.wave += 1;
+  if (state.wave > 1) {
+    state.wavesUntilGift -= 1;
+    if (state.wavesUntilGift <= 0 && !state.modalOpen) {
+      state.wavesUntilGift = 3;
+      showGiftPanel();
+    } else if (state.wavesUntilGift <= 0) {
+      state.wavesUntilGift = 1;
+    }
+  }
   state.waveClock = 0;
   state.spawnQueue = [];
   state.canClaim = false;
@@ -631,6 +660,7 @@ function scheduleWave() {
       at: i * rand(0.38, 0.68),
       type: pickEnemyType(state.wave),
       pathIndex: Math.floor(Math.random() * activePathCount()),
+      elite: Math.random() < Math.min(0.08 + state.wave * 0.01, 0.28),
     });
   }
 
@@ -639,6 +669,7 @@ function scheduleWave() {
       at: count * 0.45 + 1.2,
       type: "boss",
       pathIndex: Math.floor(Math.random() * activePathCount()),
+      elite: true,
     });
   }
 
@@ -666,9 +697,10 @@ function pickEnemyType(wave) {
   return "golem";
 }
 
-function spawnEnemy(type, pathIndex) {
+function spawnEnemy(type, pathIndex, elite = false) {
   const meta = ENEMY_TYPES[type];
-  const scale = 1 + Math.pow(state.wave, 1.08) * 0.064 + state.territory * 0.032;
+  const armyPower = Math.max(0, state.units.reduce((sum, unit) => sum + unit.level, 0) - 4) * 0.018;
+  const scale = (1 + Math.pow(state.wave, 1.08) * 0.064 + state.territory * 0.032 + armyPower) * (elite ? 1.75 : 1);
   const pos = pointOnPath(pathIndex, 0);
   const enemy = {
     id: entityId++,
@@ -690,6 +722,7 @@ function spawnEnemy(type, pathIndex) {
     attackFlash: 0,
     slowTimer: 0,
     regenClock: 0,
+    elite,
   };
   state.enemies.push(enemy);
 }
@@ -699,14 +732,6 @@ function update(dt) {
 
   state.time += dt;
   saveClock += dt;
-  state.giftTimer -= dt;
-
-  if (state.giftTimer <= 0) {
-    state.giftTimer = 60;
-    showGiftPanel();
-    return;
-  }
-
   if (state.upgrades.regen > 0) {
     state.baseHp = Math.min(state.baseMaxHp, state.baseHp + state.upgrades.regen * dt);
   }
@@ -738,7 +763,7 @@ function processWave(dt) {
   state.waveClock += dt;
   while (state.spawnQueue.length && state.spawnQueue[0].at <= state.waveClock) {
     const item = state.spawnQueue.shift();
-    spawnEnemy(item.type, item.pathIndex);
+    spawnEnemy(item.type, item.pathIndex, item.elite);
   }
 
   if (state.spawnQueue.length === 0 && state.enemies.length === 0) {
@@ -1059,7 +1084,7 @@ function showGiftPanel() {
     });
     ui.choiceGrid.appendChild(card);
   });
-  ui.choiceNote.textContent = "每 60 秒出现一次，奖励随机";
+  ui.choiceNote.textContent = "补给每 3 波出现一次，奖励随机";
   ui.choiceModal.hidden = false;
 }
 
@@ -1184,7 +1209,7 @@ function updateUi() {
   ui.base.textContent = `${Math.ceil(state.baseHp)}/${state.baseMaxHp}`;
   ui.cap.textContent = `兵力 ${currentUnitCount()}/${state.unitCap}`;
   ui.best.textContent = `最佳 ${Math.max(state.bestWave, state.wave)}`;
-  ui.gift.textContent = `惊喜 ${Math.ceil(state.giftTimer)}s`;
+  ui.gift.textContent = `补给 ${state.wavesUntilGift}波`;
   ui.pauseIcon.textContent = state.paused ? "▶" : "II";
   ui.pauseBtn.setAttribute("aria-label", state.paused ? "继续" : "暂停");
   ui.speedBtn.textContent = `${state.speed}x`;
@@ -1226,23 +1251,24 @@ function render() {
 }
 
 function drawBackground(w, h) {
+  const biome = BIOMES[(state.territory - 1) % BIOMES.length];
   const sky = ctx.createLinearGradient(0, 0, 0, h * 0.34);
   sky.addColorStop(0, "#82a46c");
   sky.addColorStop(1, "#617d52");
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, h);
 
-  ctx.fillStyle = "#4f7446";
+  ctx.fillStyle = biome.hill;
   drawHill(-30, h * 0.23, w * 0.5, 78);
   drawHill(w * 0.34, h * 0.19, w * 0.55, 92);
   drawHill(w * 0.74, h * 0.24, w * 0.34, 60);
 
-  ctx.fillStyle = "#5d8b4a";
+  ctx.fillStyle = biome.land;
   ctx.fillRect(0, h * 0.25, w, h * 0.75);
 
-  ctx.fillStyle = "rgba(57, 91, 99, 0.92)";
+  ctx.fillStyle = biome.water;
   roundRect(WORLD.baseX + 42, h * 0.31, w - WORLD.baseX - 86, h * 0.47, 22, true, false);
-  ctx.fillStyle = "rgba(70, 112, 119, 0.75)";
+  ctx.fillStyle = biome.water2;
   roundRect(WORLD.baseX + 54, h * 0.33, w - WORLD.baseX - 110, h * 0.43, 20, true, false);
 
   ctx.fillStyle = "rgba(222, 188, 102, 0.16)";
@@ -1288,7 +1314,7 @@ function drawPaths() {
     const active = index < activePathCount();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = active ? "#c99a58" : "rgba(95, 79, 55, 0.42)";
+    ctx.strokeStyle = active ? BIOMES[(state.territory - 1) % BIOMES.length].path : "rgba(95, 79, 55, 0.42)";
     ctx.lineWidth = 42;
     drawPathStroke(path);
     ctx.strokeStyle = "#1b1713";
@@ -1515,6 +1541,14 @@ function drawEnemy(enemy) {
   ctx.fillRect(5, -9, 4, 9);
   drawEnemyTrait(enemy.type);
 
+  if (enemy.elite) {
+    ctx.strokeStyle = "#ffe28e";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(0, -3, 25, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
   ctx.fillStyle = elem.color;
   ctx.strokeStyle = "#1b1713";
   ctx.lineWidth = 3;
@@ -1696,7 +1730,7 @@ function saveGame() {
     bridgeCount: state.bridgeCount,
     territory: state.territory,
     canClaim: state.canClaim,
-    giftTimer: state.giftTimer,
+    wavesUntilGift: state.wavesUntilGift,
     coins: state.coins,
     lifetimeCoins: state.lifetimeCoins,
     nextChoiceAt: state.nextChoiceAt,
@@ -1721,6 +1755,46 @@ function saveGame() {
   localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
 }
 
+function createSaveCode() {
+  saveGame();
+  return btoa(unescape(encodeURIComponent(localStorage.getItem(SAVE_KEY) || "")));
+}
+
+function loadSaveCode(code) {
+  const raw = decodeURIComponent(escape(atob(code.trim())));
+  const parsed = JSON.parse(raw);
+  if (!parsed || parsed.version !== 3) throw new Error("bad save");
+  localStorage.setItem(SAVE_KEY, raw);
+  state = createDefaultState();
+  entityId = 1;
+  resizeCanvas();
+  if (!loadGame() || state.units.length === 0) spawnStarterUnits();
+  closeSaveModal();
+  showToast("已读取导入存档");
+  saveGame();
+  updateUi();
+}
+
+function openExportModal() {
+  ui.saveTitle.textContent = "导出存档";
+  ui.saveText.value = createSaveCode();
+  ui.loadSaveBtn.style.display = "none";
+  ui.copySaveBtn.style.display = "";
+  ui.saveModal.hidden = false;
+}
+
+function openImportModal() {
+  ui.saveTitle.textContent = "导入存档";
+  ui.saveText.value = "";
+  ui.loadSaveBtn.style.display = "";
+  ui.copySaveBtn.style.display = "none";
+  ui.saveModal.hidden = false;
+}
+
+function closeSaveModal() {
+  ui.saveModal.hidden = true;
+}
+
 function loadGame() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
@@ -1732,7 +1806,7 @@ function loadGame() {
     state.bridgeCount = saved.bridgeCount || 1;
     state.territory = saved.territory || 1;
     state.canClaim = !!saved.canClaim;
-    state.giftTimer = saved.giftTimer || 60;
+    state.wavesUntilGift = saved.wavesUntilGift || 3;
     state.coins = saved.coins ?? state.coins;
     state.lifetimeCoins = saved.lifetimeCoins || 0;
     state.nextChoiceAt = saved.nextChoiceAt || 750;
@@ -1831,6 +1905,30 @@ function init() {
   ui.upgradeSelectedBtn.addEventListener("click", upgradeSelectedUnit);
   ui.techBtn.addEventListener("click", showTechPanel);
   ui.claimBtn.addEventListener("click", claimTerritory);
+  ui.saveBtn.addEventListener("click", () => {
+    saveGame();
+    showToast("已保存");
+  });
+  ui.exportBtn.addEventListener("click", openExportModal);
+  ui.importBtn.addEventListener("click", openImportModal);
+  ui.closeSaveBtn.addEventListener("click", closeSaveModal);
+  ui.copySaveBtn.addEventListener("click", async () => {
+    ui.saveText.select();
+    try {
+      await navigator.clipboard.writeText(ui.saveText.value);
+      showToast("已复制存档码");
+    } catch {
+      document.execCommand("copy");
+      showToast("已复制存档码");
+    }
+  });
+  ui.loadSaveBtn.addEventListener("click", () => {
+    try {
+      loadSaveCode(ui.saveText.value);
+    } catch {
+      showToast("存档码无效");
+    }
+  });
   canvas.addEventListener("pointerdown", handlePointerDown);
   canvas.addEventListener("pointermove", handlePointerMove);
   canvas.addEventListener("pointerup", handlePointerUp);

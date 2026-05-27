@@ -41,11 +41,11 @@ button {
 
 .game-shell {
   position: relative;
-  width: min(100vw, 520px);
+  width: 100vw;
   height: 100dvh;
   margin: 0 auto;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 330px;
   background: #273f32;
   box-shadow: 0 0 36px rgba(0, 0, 0, 0.35);
 }
@@ -70,7 +70,7 @@ button {
   left: 10px;
   right: 10px;
   display: grid;
-  grid-template-columns: 1fr 0.78fr 0.78fr 1.26fr 42px 46px;
+  grid-template-columns: 120px 96px 96px 150px 42px 46px;
   gap: 7px;
   align-items: center;
   pointer-events: auto;
@@ -166,8 +166,11 @@ button {
 .command-panel {
   position: relative;
   z-index: 2;
-  padding: 10px 10px calc(12px + env(safe-area-inset-bottom));
-  border-top: 4px solid var(--ink);
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  padding: calc(88px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
+  border-left: 4px solid var(--ink);
   background:
     linear-gradient(180deg, rgba(28, 28, 24, 0.95), rgba(25, 22, 19, 0.98)),
     #211d19;
@@ -175,18 +178,19 @@ button {
 
 .shop-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
 .shop-card {
   min-width: 0;
-  height: 82px;
+  height: 88px;
   display: grid;
-  grid-template-rows: 24px 1fr 18px;
+  grid-template-columns: 36px minmax(0, 1fr);
+  grid-template-rows: 1fr 20px;
   place-items: center;
   gap: 2px;
-  padding: 7px 4px 6px;
+  padding: 7px 8px 6px;
   border: 3px solid var(--ink);
   border-radius: 8px;
   background: #d8bb7c;
@@ -201,16 +205,19 @@ button {
 }
 
 .shop-card strong {
+  grid-column: 2;
+  justify-self: start;
   width: 100%;
   overflow: hidden;
   font-size: clamp(12px, 3.2vw, 15px);
   line-height: 1.1;
-  text-align: center;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .shop-card small {
+  grid-column: 1 / -1;
   color: #713321;
   font-size: clamp(11px, 3vw, 13px);
   font-weight: 900;
@@ -321,6 +328,32 @@ button {
   margin-top: 9px;
 }
 
+.save-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.save-btn {
+  min-width: 0;
+  height: 38px;
+  overflow: hidden;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: #d8bb7c;
+  color: #21150f;
+  box-shadow: 0 4px 0 var(--ink);
+  cursor: pointer;
+  font-size: clamp(12px, 1.2vw, 14px);
+  font-weight: 1000;
+}
+
+.save-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--ink), 0 4px 10px var(--shadow);
+}
+
 .action-btn {
   min-width: 0;
   height: 42px;
@@ -356,6 +389,7 @@ button {
 }
 
 .choice-modal,
+.save-modal,
 .game-over {
   position: absolute;
   inset: 0;
@@ -368,14 +402,55 @@ button {
 }
 
 .choice-modal[hidden],
+.save-modal[hidden],
 .game-over[hidden] {
   display: none;
 }
 
 .choice-panel,
+.save-panel,
 .end-panel {
   width: min(100%, 470px);
   text-align: center;
+}
+
+.save-panel {
+  padding: 16px;
+  border: 4px solid var(--ink);
+  border-radius: 8px;
+  background: #f1d089;
+  color: var(--ink);
+  box-shadow: 0 7px 0 var(--ink), 0 18px 22px rgba(0, 0, 0, 0.35);
+}
+
+#saveText {
+  width: 100%;
+  height: 180px;
+  resize: vertical;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff4ce;
+  color: #21150f;
+  font: 700 13px ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.save-modal-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.save-modal-actions button {
+  height: 42px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: #9ed0c0;
+  color: #21150f;
+  box-shadow: 0 4px 0 var(--ink);
+  cursor: pointer;
+  font-weight: 1000;
 }
 
 .choice-kicker,
@@ -548,7 +623,41 @@ button {
   }
 }
 
-@media (max-width: 390px) {
+@media (max-width: 760px) {
+  .game-shell {
+    width: min(100vw, 520px);
+    grid-template-columns: none;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .command-panel {
+    display: block;
+    padding: 10px 10px calc(12px + env(safe-area-inset-bottom));
+    border-top: 4px solid var(--ink);
+    border-left: 0;
+  }
+
+  .shop-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .shop-card {
+    height: 76px;
+    grid-template-columns: none;
+    grid-template-rows: 24px 1fr 18px;
+    padding: 7px 2px 6px;
+  }
+
+  .shop-card strong {
+    grid-column: auto;
+    justify-self: center;
+    text-align: center;
+  }
+
+  .shop-card small {
+    grid-column: auto;
+  }
+
   .topbar {
     grid-template-columns: 1fr 0.72fr 0.72fr 1.12fr 38px 42px;
     gap: 5px;
@@ -568,28 +677,17 @@ button {
     padding: 9px 5px;
   }
 
-  .shop-card {
-    height: 74px;
-    padding-inline: 2px;
-  }
-
   .action-btn {
     height: 38px;
   }
 }
 
-@media (min-width: 760px) {
+@media (min-width: 761px) {
   body {
-    overflow: auto;
+    overflow: hidden;
   }
 
   .game-shell {
-    min-height: 720px;
-    max-height: 960px;
-    margin-top: 18px;
-    margin-bottom: 18px;
-    border: 4px solid #111;
-    border-radius: 10px;
-    overflow: hidden;
+    min-height: 0;
   }
 }

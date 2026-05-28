@@ -49,8 +49,8 @@
 
       <section class="command-panel" aria-label="指挥区">
         <div class="version-banner">
-          <strong id="versionText">V10 策略扩展版</strong>
-          <span>多界面 · 阵法 · 战力匹配 · 商店 · 剧情</span>
+          <strong id="versionText">V11 五行英雄版</strong>
+          <span>五英雄 · 装备槽 · 策略关卡 · 旧存档重置</span>
         </div>
 
         <div class="side-tabs" aria-label="指挥页签">
@@ -94,30 +94,30 @@
             <span id="achievementText">战功 0</span>
           </div>
 
-          <div class="shop-grid">
-            <button class="shop-card" type="button" data-buy="rifle">
+          <div class="shop-grid hero-grid">
+            <button class="shop-card hero-card" type="button" data-hero="rifle">
               <span class="unit-mark rifle-mark"></span>
               <strong>金弩手</strong>
               <small id="cost-rifle">60</small>
             </button>
-            <button class="shop-card" type="button" data-buy="guard">
+            <button class="shop-card hero-card" type="button" data-hero="guard">
               <span class="unit-mark guard-mark"></span>
-              <strong>土盾卫</strong>
+              <strong>土守将</strong>
               <small id="cost-guard">90</small>
             </button>
-            <button class="shop-card" type="button" data-buy="medic">
+            <button class="shop-card hero-card" type="button" data-hero="medic">
               <span class="unit-mark medic-mark"></span>
-              <strong>木医师</strong>
+              <strong>木灵使</strong>
               <small id="cost-medic">120</small>
             </button>
-            <button class="shop-card" type="button" data-buy="mage">
+            <button class="shop-card hero-card" type="button" data-hero="mage">
               <span class="unit-mark mage-mark"></span>
-              <strong>水术士</strong>
+              <strong>水镜师</strong>
               <small id="cost-mage">150</small>
             </button>
-            <button class="shop-card" type="button" data-buy="turret">
+            <button class="shop-card hero-card" type="button" data-hero="turret">
               <span class="unit-mark turret-mark"></span>
-              <strong>火炮台</strong>
+              <strong>火炮将</strong>
               <small id="cost-turret">180</small>
             </button>
           </div>
@@ -147,6 +147,16 @@
             <strong>布阵提示</strong>
             <span id="formationHint">阵法按你场上五行人数自动判断是否可用，选择后改变战斗重点。</span>
           </div>
+          <div class="section-title">
+            <strong>英雄装备槽</strong>
+            <span id="loadoutText">每名英雄最多 2 件装备</span>
+          </div>
+          <div class="loadout-grid" id="loadoutGrid"></div>
+          <div class="section-title">
+            <strong>背包</strong>
+            <span id="inventoryText">关卡奖励会进入背包</span>
+          </div>
+          <div class="inventory-grid" id="inventoryGrid"></div>
         </div>
 
         <div class="side-panel" data-panel="market">

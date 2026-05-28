@@ -23,6 +23,25 @@ const ui = {
   selected: document.getElementById("selectedText"),
   gift: document.getElementById("giftText"),
   best: document.getElementById("bestText"),
+  version: document.getElementById("versionText"),
+  energy: document.getElementById("energyText"),
+  weather: document.getElementById("weatherText"),
+  synergy: document.getElementById("synergyText"),
+  relic: document.getElementById("relicText"),
+  objective: document.getElementById("objectiveText"),
+  achievement: document.getElementById("achievementText"),
+  tacticButtons: {
+    storm: document.getElementById("stormBtn"),
+    frost: document.getElementById("frostBtn"),
+    rally: document.getElementById("rallyBtn"),
+    mine: document.getElementById("mineBtn"),
+  },
+  tacticStatus: {
+    storm: document.getElementById("stormStatus"),
+    frost: document.getElementById("frostStatus"),
+    rally: document.getElementById("rallyStatus"),
+    mine: document.getElementById("mineStatus"),
+  },
   pauseBtn: document.getElementById("pauseBtn"),
   pauseIcon: document.getElementById("pauseIcon"),
   speedBtn: document.getElementById("speedBtn"),
@@ -209,6 +228,934 @@ const BIOMES = [
   { land: "#756f4a", hill: "#625d3d", water: "#4b6370", water2: "#576f7d", path: "#b88654" },
 ];
 
+const REGION_NAMES = [
+  "旧木桥",
+  "赤土渡口",
+  "雾水寨",
+  "金鳞关",
+  "鹿角台",
+  "碎石城",
+  "潮声营",
+  "火灯坡",
+  "青藤郡",
+  "玄铁桥头",
+  "五行古道",
+  "远山王庭",
+];
+
+const WEATHER_TYPES = [
+  {
+    id: "clear",
+    name: "晴朗",
+    desc: "双方状态稳定",
+    duration: 48,
+    tint: "rgba(255, 223, 144, 0.06)",
+    unitDamage: 1,
+    enemySpeed: 1,
+    range: 1,
+    energy: 1,
+  },
+  {
+    id: "rain",
+    name: "雨幕",
+    desc: "水系缓速更久，火炮略弱",
+    duration: 54,
+    tint: "rgba(89, 157, 190, 0.14)",
+    unitDamage: 0.97,
+    fireDamage: 0.88,
+    waterSlow: 1.35,
+    enemySpeed: 0.94,
+    range: 1,
+    energy: 1.05,
+  },
+  {
+    id: "wind",
+    name: "疾风",
+    desc: "弹道更快，敌人也更快",
+    duration: 44,
+    tint: "rgba(188, 230, 194, 0.1)",
+    projectileSpeed: 1.2,
+    enemySpeed: 1.12,
+    range: 1.04,
+    energy: 1.08,
+  },
+  {
+    id: "fog",
+    name: "薄雾",
+    desc: "视野变短，精英护盾变厚",
+    duration: 50,
+    tint: "rgba(221, 232, 214, 0.16)",
+    unitDamage: 1.02,
+    enemyShield: 1.25,
+    enemySpeed: 0.98,
+    range: 0.88,
+    energy: 1,
+  },
+  {
+    id: "drought",
+    name: "燥热",
+    desc: "火系更强，治疗略弱",
+    duration: 46,
+    tint: "rgba(224, 116, 64, 0.1)",
+    fireDamage: 1.22,
+    heal: 0.88,
+    enemySpeed: 1.04,
+    range: 1,
+    energy: 0.96,
+  },
+  {
+    id: "storm",
+    name: "雷云",
+    desc: "能量恢复加快，精英更频繁",
+    duration: 42,
+    tint: "rgba(111, 101, 180, 0.13)",
+    stormDamage: 1.28,
+    eliteChance: 0.08,
+    enemySpeed: 1.03,
+    range: 1,
+    energy: 1.32,
+  },
+];
+
+const TACTICS = {
+  storm: {
+    name: "雷令",
+    desc: "轰击全场敌人，对精英额外伤害",
+    cost: 30,
+    cooldown: 16,
+    color: "#f1d067",
+  },
+  frost: {
+    name: "霜阵",
+    desc: "冻结并削弱桥上敌人",
+    cost: 24,
+    cooldown: 18,
+    color: "#73c7e8",
+  },
+  rally: {
+    name: "战鼓",
+    desc: "治疗全军并短时提高射速",
+    cost: 22,
+    cooldown: 22,
+    color: "#77c66e",
+  },
+  mine: {
+    name: "火雷",
+    desc: "在桥上布置连环火雷",
+    cost: 26,
+    cooldown: 20,
+    color: "#e86847",
+  },
+};
+
+const RELIC_POOL = [
+  {
+    id: "thunder_drum",
+    name: "雷鼓",
+    rank: "稀有",
+    desc: "雷令伤害 +35%，击中精英返还 8 能量",
+    stats: { stormDamage: 0.35, eliteEnergyRefund: 8 },
+  },
+  {
+    id: "frost_lens",
+    name: "霜镜",
+    rank: "稀有",
+    desc: "霜阵持续 +45%，水术士攻击有小概率冰封",
+    stats: { frostDuration: 0.45, waterRoot: 0.08 },
+  },
+  {
+    id: "war_banner",
+    name: "破阵旗",
+    rank: "史诗",
+    desc: "战鼓持续 +4 秒，全军攻击 +8%",
+    stats: { rallyDuration: 4, damage: 0.08 },
+  },
+  {
+    id: "iron_seeds",
+    name: "铁蒺藜",
+    rank: "稀有",
+    desc: "火雷数量 +2，爆炸范围 +18%",
+    stats: { mineCount: 2, mineRadius: 0.18 },
+  },
+  {
+    id: "golden_tax",
+    name: "金印税契",
+    rank: "普通",
+    desc: "金币收益 +18%，但精英出现率略增",
+    stats: { gold: 0.18, eliteChance: 0.025 },
+  },
+  {
+    id: "wooden_heart",
+    name: "木灵心",
+    rank: "普通",
+    desc: "治疗 +22%，城门每秒缓慢恢复",
+    stats: { heal: 0.22, baseRegen: 1.2 },
+  },
+  {
+    id: "water_chain",
+    name: "锁水链",
+    rank: "普通",
+    desc: "所有缓速效果 +25%，被缓速敌人承伤 +6%",
+    stats: { slowPower: 0.25, slowDamageTaken: 0.06 },
+  },
+  {
+    id: "fire_core",
+    name: "熔火芯",
+    rank: "稀有",
+    desc: "火系伤害 +28%，火炮命中留下灼烧",
+    stats: { fireDamage: 0.28, burnChance: 0.28 },
+  },
+  {
+    id: "earth_gate",
+    name: "土门钉",
+    rank: "稀有",
+    desc: "城门上限 +12%，土盾卫阻挡范围更大",
+    stats: { baseMaxPct: 0.12, guardBlock: 0.22 },
+  },
+  {
+    id: "metal_file",
+    name: "金错刀",
+    rank: "普通",
+    desc: "穿甲 +12%，金弩手暴击率 +8%",
+    stats: { pierce: 0.12, metalCrit: 0.08 },
+  },
+  {
+    id: "star_map",
+    name: "星图",
+    rank: "史诗",
+    desc: "每次推进领地后获得一个遗物选择",
+    stats: { relicOnClaim: 1 },
+  },
+  {
+    id: "merchant_pack",
+    name: "行商背篓",
+    rank: "普通",
+    desc: "招募费用 -12%，补给金币奖励 +25%",
+    stats: { discount: 0.12, giftGold: 0.25 },
+  },
+  {
+    id: "old_contract",
+    name: "旧军契",
+    rank: "稀有",
+    desc: "兵力上限 +3，免费援军更容易出现高级兵",
+    stats: { unitCap: 3, freeUnitLevel: 1 },
+  },
+  {
+    id: "rage_seal",
+    name: "怒印",
+    rank: "稀有",
+    desc: "敌人进入城门附近时，全军射速 +18%",
+    stats: { dangerFireRate: 0.18 },
+  },
+  {
+    id: "quiet_bell",
+    name: "静铃",
+    rank: "普通",
+    desc: "每波开始获得护盾，薄雾天气不再降低射程",
+    stats: { waveShield: 80, ignoreFogRange: 1 },
+  },
+  {
+    id: "blood_coin",
+    name: "血钱",
+    rank: "史诗",
+    desc: "击杀精英额外金币 +55%，但精英攻击 +10%",
+    stats: { eliteGold: 0.55, eliteDamage: 0.1 },
+  },
+  {
+    id: "five_scroll",
+    name: "五行残卷",
+    rank: "史诗",
+    desc: "五行阵效果翻倍，元素克制伤害 +10%",
+    stats: { fiveSynergy: 1, elementPower: 0.1 },
+  },
+  {
+    id: "bridge_anchor",
+    name: "镇桥锚",
+    rank: "稀有",
+    desc: "桥上敌人速度 -8%，每座桥首次被突破时眩晕敌人",
+    stats: { bridgeSlow: 0.08, bridgeStun: 1 },
+  },
+  {
+    id: "eagle_eye",
+    name: "鹰眼符",
+    rank: "普通",
+    desc: "射程 +12%，远程优先攻击精英",
+    stats: { range: 0.12, eliteFocus: 1 },
+  },
+  {
+    id: "amber_soup",
+    name: "琥珀汤",
+    rank: "普通",
+    desc: "单位生命 +16%，补给治疗效果 +30%",
+    stats: { hp: 0.16, giftHeal: 0.3 },
+  },
+  {
+    id: "needle_tower",
+    name: "针塔图纸",
+    rank: "稀有",
+    desc: "火炮台射速 +16%，火雷触发后留下一片火场",
+    stats: { turretRate: 0.16, mineFireField: 1 },
+  },
+  {
+    id: "river_oath",
+    name: "河誓",
+    rank: "稀有",
+    desc: "雨幕天气持续更久，水系伤害 +18%",
+    stats: { rainDuration: 0.35, waterDamage: 0.18 },
+  },
+  {
+    id: "forge_stamp",
+    name: "铸印",
+    rank: "普通",
+    desc: "升级选中费用 -10%，每升 5 级额外回血",
+    stats: { upgradeDiscount: 0.1, levelHeal: 0.18 },
+  },
+  {
+    id: "spirit_lamp",
+    name: "魂灯",
+    rank: "史诗",
+    desc: "死亡单位有 25% 概率保留 1 血并眩晕周围敌人",
+    stats: { deathSave: 0.25 },
+  },
+  {
+    id: "storm_vane",
+    name: "风雷标",
+    rank: "稀有",
+    desc: "疾风天气弹道更快，雷云天气能量恢复再 +20%",
+    stats: { windProjectile: 0.25, stormEnergy: 0.2 },
+  },
+  {
+    id: "lion_seal",
+    name: "狮钮印",
+    rank: "普通",
+    desc: "Boss 受到伤害 +12%，首领奖励金币 +30%",
+    stats: { bossDamageTaken: 0.12, bossGold: 0.3 },
+  },
+  {
+    id: "mud_wall",
+    name: "泥墙术",
+    rank: "普通",
+    desc: "城门受到伤害 -10%，土系单位生命 +18%",
+    stats: { baseDamageReduce: 0.1, earthHp: 0.18 },
+  },
+  {
+    id: "foxfire",
+    name: "狐火瓶",
+    rank: "稀有",
+    desc: "攻击有 6% 概率弹射一次，火系弹射概率翻倍",
+    stats: { chainChance: 0.06, fireChainBonus: 0.06 },
+  },
+  {
+    id: "green_contract",
+    name: "青契",
+    rank: "普通",
+    desc: "每 4 波随机一个最低等级单位升 1 级",
+    stats: { periodicLevel: 4 },
+  },
+  {
+    id: "black_salt",
+    name: "黑盐",
+    rank: "稀有",
+    desc: "敌人护甲 -2，精英护甲额外 -5",
+    stats: { armorBreak: 2, eliteArmorBreak: 5 },
+  },
+  {
+    id: "moon_well",
+    name: "月井",
+    rank: "史诗",
+    desc: "能量上限 +35，每波开始恢复 20 能量",
+    stats: { maxEnergy: 35, waveEnergy: 20 },
+  },
+  {
+    id: "banner_shop",
+    name: "旗亭",
+    rank: "普通",
+    desc: "推进领地费用 -18%，推进后全军回血",
+    stats: { claimDiscount: 0.18, claimHeal: 0.35 },
+  },
+];
+
+const ENEMY_AFFIXES = [
+  {
+    id: "shielded",
+    name: "盾",
+    desc: "生成护盾",
+    color: "#9ed0d2",
+  },
+  {
+    id: "haste",
+    name: "迅",
+    desc: "速度更快",
+    color: "#f0ba3e",
+  },
+  {
+    id: "vampire",
+    name: "噬",
+    desc: "攻击回血",
+    color: "#d94e3f",
+  },
+  {
+    id: "split",
+    name: "裂",
+    desc: "死亡分裂",
+    color: "#b66ad7",
+  },
+  {
+    id: "venom",
+    name: "毒",
+    desc: "攻击带毒",
+    color: "#77c66e",
+  },
+  {
+    id: "tax",
+    name: "赏",
+    desc: "奖励更多金币",
+    color: "#f1d067",
+  },
+];
+
+const SCENARIO_EVENTS = [
+  {
+    id: "merchant",
+    title: "桥边行商",
+    note: "一个行商愿意把库存压给你，但他要现金。",
+    choices: [
+      { title: "买下火雷箱", desc: "花费金币，立刻布置 5 个火雷", effect: "buyMines" },
+      { title: "赊账招募", desc: "获得随机援军，但下一波敌人更强", effect: "debtUnit" },
+      { title: "只买干粮", desc: "城门恢复并获得少量能量", effect: "food" },
+    ],
+  },
+  {
+    id: "ancient_shrine",
+    title: "五行小庙",
+    note: "庙里有五个暗格，只能打开一个。",
+    choices: [
+      { title: "取金", desc: "金系单位暴击提高", effect: "metalBlessing" },
+      { title: "取水", desc: "水系缓速加强", effect: "waterBlessing" },
+      { title: "取土", desc: "城门和土盾卫变硬", effect: "earthBlessing" },
+    ],
+  },
+  {
+    id: "broken_bridge",
+    title: "断桥残阵",
+    note: "老桥面下埋着古旧阵纹。",
+    choices: [
+      { title: "修桥", desc: "推进费用下降，敌人路径变长", effect: "repairBridge" },
+      { title: "拆桥", desc: "下一波敌人减少，但获得金币更少", effect: "breakBridge" },
+      { title: "埋伏", desc: "下一波首批敌人被火雷迎接", effect: "ambush" },
+    ],
+  },
+  {
+    id: "refugees",
+    title: "逃难工匠",
+    note: "工匠们请求入城，他们能修东西，也会消耗粮草。",
+    choices: [
+      { title: "收留", desc: "城门上限提高，招募费用短时上升", effect: "takeCraftsmen" },
+      { title: "编入军中", desc: "获得两个低级援军", effect: "militia" },
+      { title: "护送离开", desc: "获得大量能量", effect: "escort" },
+    ],
+  },
+  {
+    id: "strange_fog",
+    title: "夜雾鼓声",
+    note: "雾里传来鼓声，敌我都被影响。",
+    choices: [
+      { title: "点燃烽火", desc: "驱散薄雾并强化火系", effect: "beacon" },
+      { title: "听声辨位", desc: "射程提高，但下一波精英更多", effect: "listen" },
+      { title: "静守", desc: "立刻获得一个防御遗物选择", effect: "defRelic" },
+    ],
+  },
+  {
+    id: "mine_vein",
+    title: "浅金矿脉",
+    note: "山脚露出矿脉，开采会惊动地底巨像。",
+    choices: [
+      { title: "开采", desc: "获得金币，下一波加入土巨像", effect: "mineGold" },
+      { title: "封矿", desc: "敌人护甲降低", effect: "sealMine" },
+      { title: "铸箭", desc: "金弩手伤害提升", effect: "forgeArrows" },
+    ],
+  },
+];
+
+const WAVE_MUTATORS = [
+  {
+    id: "none",
+    name: "平潮",
+    desc: "这一段没有额外异变",
+    enemyHp: 1,
+    enemySpeed: 1,
+    eliteChance: 0,
+    reward: 1,
+  },
+  {
+    id: "iron_skin",
+    name: "铁皮潮",
+    desc: "敌人护甲和生命提高，奖励略增",
+    enemyHp: 1.24,
+    armor: 4,
+    eliteChance: 0.03,
+    reward: 1.12,
+  },
+  {
+    id: "fast_feet",
+    name: "急行潮",
+    desc: "敌人速度大幅提高，但生命较低",
+    enemyHp: 0.9,
+    enemySpeed: 1.26,
+    eliteChance: 0.04,
+    reward: 1.08,
+  },
+  {
+    id: "rich_wave",
+    name: "财宝潮",
+    desc: "敌人携带更多金币，也更容易出现精英",
+    enemyHp: 1.08,
+    enemySpeed: 1,
+    eliteChance: 0.12,
+    reward: 1.45,
+  },
+  {
+    id: "mist_blades",
+    name: "雾刃潮",
+    desc: "敌人攻击提高，薄雾时额外加速",
+    enemyHp: 1.05,
+    enemyDamage: 1.22,
+    fogSpeed: 1.15,
+    reward: 1.1,
+  },
+  {
+    id: "shield_line",
+    name: "盾线潮",
+    desc: "精英更常带盾，Boss 护盾也更厚",
+    enemyHp: 1.14,
+    shieldBonus: 0.16,
+    eliteChance: 0.1,
+    reward: 1.16,
+  },
+  {
+    id: "ember_rush",
+    name: "余烬潮",
+    desc: "火爆怪更多，死亡爆炸更疼",
+    enemyHp: 1.02,
+    cinderBias: 0.22,
+    explosion: 1.35,
+    reward: 1.12,
+  },
+  {
+    id: "golem_march",
+    name: "巨像行军",
+    desc: "土巨像更多，敌人速度变慢但非常厚",
+    enemyHp: 1.34,
+    enemySpeed: 0.88,
+    golemBias: 0.24,
+    reward: 1.22,
+  },
+  {
+    id: "low_tide",
+    name: "退潮",
+    desc: "这一段敌人较少，但下一次首领更强",
+    enemyHp: 0.86,
+    enemySpeed: 0.92,
+    eliteChance: -0.04,
+    bossHp: 1.35,
+    reward: 0.92,
+  },
+  {
+    id: "blood_moon",
+    name: "血月",
+    desc: "敌人全面加强，击败后奖励明显提高",
+    enemyHp: 1.3,
+    enemyDamage: 1.2,
+    eliteChance: 0.13,
+    reward: 1.5,
+  },
+  {
+    id: "wood_plague",
+    name: "藤疫",
+    desc: "木藤妖更多，敌人回血更强",
+    enemyHp: 1.12,
+    sproutBias: 0.28,
+    regen: 1.8,
+    reward: 1.16,
+  },
+  {
+    id: "water_mirrors",
+    name: "水镜",
+    desc: "水影更多，雨幕时速度变化更剧烈",
+    enemyHp: 0.96,
+    tideBias: 0.3,
+    rainSpeed: 1.18,
+    reward: 1.1,
+  },
+  {
+    id: "commanders",
+    name: "统领巡桥",
+    desc: "精英数量提高，普通敌人略少",
+    enemyHp: 1.15,
+    count: 0.88,
+    eliteChance: 0.18,
+    reward: 1.22,
+  },
+  {
+    id: "thin_line",
+    name: "细线",
+    desc: "敌人数量少，但单个敌人更强",
+    enemyHp: 1.52,
+    enemyDamage: 1.12,
+    count: 0.68,
+    reward: 1.25,
+  },
+  {
+    id: "swarm_line",
+    name: "群行",
+    desc: "敌人数量变多，单体略弱",
+    enemyHp: 0.82,
+    enemyDamage: 0.92,
+    count: 1.42,
+    reward: 1.06,
+  },
+  {
+    id: "storm_call",
+    name: "唤雷",
+    desc: "雷云更常出现，精英更容易带迅捷",
+    enemyHp: 1.08,
+    forceWeather: "storm",
+    hasteBias: 0.2,
+    reward: 1.14,
+  },
+];
+
+const ACHIEVEMENTS = [
+  {
+    id: "first_blood",
+    title: "首胜",
+    desc: "击败第一个敌人",
+    type: "kills",
+    target: 1,
+    reward: { coins: 80 },
+  },
+  {
+    id: "ten_kills",
+    title: "十斩",
+    desc: "累计击败 10 个敌人",
+    type: "kills",
+    target: 10,
+    reward: { energy: 25 },
+  },
+  {
+    id: "fifty_kills",
+    title: "破阵五十",
+    desc: "累计击败 50 个敌人",
+    type: "kills",
+    target: 50,
+    reward: { coins: 260 },
+  },
+  {
+    id: "hundred_kills",
+    title: "百战不退",
+    desc: "累计击败 100 个敌人",
+    type: "kills",
+    target: 100,
+    reward: { relic: 1 },
+  },
+  {
+    id: "wave_three",
+    title: "首领照面",
+    desc: "抵达第 3 波",
+    type: "wave",
+    target: 3,
+    reward: { energy: 30 },
+  },
+  {
+    id: "wave_ten",
+    title: "十波守望",
+    desc: "抵达第 10 波",
+    type: "wave",
+    target: 10,
+    reward: { coins: 400 },
+  },
+  {
+    id: "wave_twenty",
+    title: "长夜二十",
+    desc: "抵达第 20 波",
+    type: "wave",
+    target: 20,
+    reward: { relic: 1 },
+  },
+  {
+    id: "first_relic",
+    title: "第一件遗物",
+    desc: "获得 1 件遗物",
+    type: "relics",
+    target: 1,
+    reward: { energy: 35 },
+  },
+  {
+    id: "five_relics",
+    title: "小小宝库",
+    desc: "获得 5 件遗物",
+    type: "relics",
+    target: 5,
+    reward: { coins: 650 },
+  },
+  {
+    id: "ten_relics",
+    title: "秘藏成形",
+    desc: "获得 10 件遗物",
+    type: "relics",
+    target: 10,
+    reward: { relic: 1 },
+  },
+  {
+    id: "territory_two",
+    title: "越过旧桥",
+    desc: "占领 2 块领地",
+    type: "territory",
+    target: 2,
+    reward: { coins: 240 },
+  },
+  {
+    id: "territory_five",
+    title: "五地连营",
+    desc: "占领 5 块领地",
+    type: "territory",
+    target: 5,
+    reward: { relic: 1 },
+  },
+  {
+    id: "tech_five",
+    title: "小成科技",
+    desc: "综合科技达到 5 级",
+    type: "tech",
+    target: 5,
+    reward: { energy: 60 },
+  },
+  {
+    id: "tech_ten",
+    title: "机关成群",
+    desc: "综合科技达到 10 级",
+    type: "tech",
+    target: 10,
+    reward: { coins: 800 },
+  },
+  {
+    id: "unit_ten",
+    title: "十级精兵",
+    desc: "拥有一个 10 级单位",
+    type: "highestUnit",
+    target: 10,
+    reward: { energy: 50 },
+  },
+  {
+    id: "unit_twenty",
+    title: "二十级王牌",
+    desc: "拥有一个 20 级单位",
+    type: "highestUnit",
+    target: 20,
+    reward: { relic: 1 },
+  },
+  {
+    id: "full_team",
+    title: "满编防线",
+    desc: "单位数量达到当前上限",
+    type: "fullTeam",
+    target: 1,
+    reward: { coins: 300 },
+  },
+  {
+    id: "five_elements",
+    title: "五行齐备",
+    desc: "同时拥有五种元素单位",
+    type: "fiveElements",
+    target: 1,
+    reward: { energy: 70 },
+  },
+  {
+    id: "energy_master",
+    title: "战术大师",
+    desc: "能量上限达到 130",
+    type: "maxEnergy",
+    target: 130,
+    reward: { coins: 500 },
+  },
+  {
+    id: "rich_one",
+    title: "军资充盈",
+    desc: "累计获得 5000 金币",
+    type: "lifetimeCoins",
+    target: 5000,
+    reward: { relic: 1 },
+  },
+  {
+    id: "rich_two",
+    title: "金库开张",
+    desc: "累计获得 20000 金币",
+    type: "lifetimeCoins",
+    target: 20000,
+    reward: { coins: 1200 },
+  },
+  {
+    id: "boss_three",
+    title: "三斩首领",
+    desc: "击败 3 个首领",
+    type: "bossKills",
+    target: 3,
+    reward: { relic: 1 },
+  },
+  {
+    id: "boss_ten",
+    title: "十王落桥",
+    desc: "击败 10 个首领",
+    type: "bossKills",
+    target: 10,
+    reward: { relic: 1, energy: 100 },
+  },
+  {
+    id: "wave_thirty",
+    title: "三十波长城",
+    desc: "抵达第 30 波",
+    type: "wave",
+    target: 30,
+    reward: { coins: 1800 },
+  },
+  {
+    id: "wave_fifty",
+    title: "无尽初证",
+    desc: "抵达第 50 波",
+    type: "wave",
+    target: 50,
+    reward: { relic: 1, energy: 120 },
+  },
+  {
+    id: "kills_three_hundred",
+    title: "三百破军",
+    desc: "累计击败 300 个敌人",
+    type: "kills",
+    target: 300,
+    reward: { coins: 2200 },
+  },
+  {
+    id: "kills_thousand",
+    title: "千军辟路",
+    desc: "累计击败 1000 个敌人",
+    type: "kills",
+    target: 1000,
+    reward: { relic: 1 },
+  },
+  {
+    id: "territory_ten",
+    title: "十地连旗",
+    desc: "占领 10 块领地",
+    type: "territory",
+    target: 10,
+    reward: { relic: 1, coins: 1600 },
+  },
+  {
+    id: "territory_twenty",
+    title: "二十城图",
+    desc: "占领 20 块领地",
+    type: "territory",
+    target: 20,
+    reward: { relic: 1 },
+  },
+  {
+    id: "tech_twenty",
+    title: "二十级工坊",
+    desc: "综合科技达到 20 级",
+    type: "tech",
+    target: 20,
+    reward: { energy: 120 },
+  },
+  {
+    id: "tech_thirty",
+    title: "机关百脉",
+    desc: "综合科技达到 30 级",
+    type: "tech",
+    target: 30,
+    reward: { relic: 1 },
+  },
+  {
+    id: "unit_thirty",
+    title: "三十级主将",
+    desc: "拥有一个 30 级单位",
+    type: "highestUnit",
+    target: 30,
+    reward: { coins: 2400 },
+  },
+  {
+    id: "unit_fifty",
+    title: "五十级传说",
+    desc: "拥有一个 50 级单位",
+    type: "highestUnit",
+    target: 50,
+    reward: { relic: 1, energy: 150 },
+  },
+  {
+    id: "relic_fifteen",
+    title: "十五秘藏",
+    desc: "获得 15 件遗物",
+    type: "relics",
+    target: 15,
+    reward: { coins: 2000 },
+  },
+  {
+    id: "relic_twenty",
+    title: "遗物成阵",
+    desc: "获得 20 件遗物",
+    type: "relics",
+    target: 20,
+    reward: { relic: 1 },
+  },
+  {
+    id: "energy_160",
+    title: "灵池扩张",
+    desc: "能量上限达到 160",
+    type: "maxEnergy",
+    target: 160,
+    reward: { energy: 160 },
+  },
+  {
+    id: "wealth_big",
+    title: "军费如河",
+    desc: "累计获得 100000 金币",
+    type: "lifetimeCoins",
+    target: 100000,
+    reward: { relic: 1 },
+  },
+  {
+    id: "boss_twenty",
+    title: "二十王尽",
+    desc: "击败 20 个首领",
+    type: "bossKills",
+    target: 20,
+    reward: { relic: 1, energy: 200 },
+  },
+  {
+    id: "wave_hundred",
+    title: "百波无尽",
+    desc: "抵达第 100 波",
+    type: "wave",
+    target: 100,
+    reward: { relic: 1, energy: 300 },
+  },
+  {
+    id: "territory_fifty",
+    title: "五十领地",
+    desc: "占领 50 块领地",
+    type: "territory",
+    target: 50,
+    reward: { relic: 1, coins: 5000 },
+  },
+  {
+    id: "wealth_million",
+    title: "百万军资",
+    desc: "累计获得 1000000 金币",
+    type: "lifetimeCoins",
+    target: 1000000,
+    reward: { relic: 1 },
+  },
+];
+
 const UPGRADE_POOL = [
   {
     title: "全军攻击 +8%",
@@ -304,15 +1251,32 @@ function createDefaultState() {
     waveClock: 0,
     nextWaveDelay: 0,
     spawnQueue: [],
+    nextEventWave: 4,
+    queuedRelicChoices: 0,
+    queuedScenarioEvents: 0,
     bridgeCount: 1,
     territory: 1,
     canClaim: false,
     wavesUntilGift: 3,
     coins: 280,
     lifetimeCoins: 0,
+    energy: 30,
+    maxEnergy: 100,
+    weatherId: "clear",
+    weatherClock: 36,
+    weatherSeed: 0,
+    waveMutationId: "none",
+    eventDebt: 0,
+    nextWaveMines: 0,
+    nextWaveEnemyCut: 0,
+    nextWaveRewardCut: 0,
+    rewardCutThisWave: false,
     nextChoiceAt: 750,
     choices: 0,
     kills: 0,
+    bossKills: 0,
+    achievements: {},
+    latestAchievement: "",
     baseHp: 1300,
     baseMaxHp: 1300,
     unitCap: 11,
@@ -326,9 +1290,21 @@ function createDefaultState() {
     particles: [],
     effects: [],
     floaters: [],
+    mines: [],
+    fireFields: [],
+    weatherDrops: [],
+    buffs: {
+      rally: 0,
+      danger: 0,
+      waveShield: 0,
+    },
+    tacticCooldowns: { storm: 0, frost: 0, rally: 0, mine: 0 },
     bought: { rifle: 0, guard: 0, medic: 0, mage: 0, turret: 0 },
     techLevel: 0,
     tech: { arms: 0, fort: 0, supply: 0, alchemy: 0 },
+    relics: [],
+    seenRelics: {},
+    relicStats: {},
     elementBoost: { metal: 0, wood: 0, water: 0, fire: 0, earth: 0 },
     upgrades: {
       damage: 1,
@@ -436,6 +1412,115 @@ function actorScale() {
   return 0.82;
 }
 
+function currentWeather() {
+  return WEATHER_TYPES.find((weather) => weather.id === state.weatherId) || WEATHER_TYPES[0];
+}
+
+function currentMutation() {
+  return WAVE_MUTATORS.find((mutation) => mutation.id === state.waveMutationId) || WAVE_MUTATORS[0];
+}
+
+function relicStat(key) {
+  return state.relicStats?.[key] || 0;
+}
+
+function relicMultiplier(key) {
+  return 1 + relicStat(key);
+}
+
+function hasRelic(id) {
+  return state.seenRelics?.[id] || false;
+}
+
+function regionName() {
+  return REGION_NAMES[(state.territory - 1) % REGION_NAMES.length];
+}
+
+function weatherMultiplier(key, fallback = 1) {
+  const weather = currentWeather();
+  return weather[key] ?? fallback;
+}
+
+function synergyInfo() {
+  const counts = ELEMENT_ORDER.reduce((result, element) => {
+    result[element] = 0;
+    return result;
+  }, {});
+  state.units.forEach((unit) => {
+    const element = UNIT_TYPES[unit.type]?.element;
+    if (element) counts[element] += 1;
+  });
+
+  const names = [];
+  const stats = {
+    damage: 0,
+    fireRate: 0,
+    heal: 0,
+    range: 0,
+    gold: 0,
+    pierce: 0,
+    slowPower: 0,
+    baseReduce: 0,
+    elementPower: 0,
+  };
+
+  if (counts.metal >= 3) {
+    names.push("金锋阵");
+    stats.pierce += 0.12;
+    stats.damage += 0.04;
+  }
+  if (counts.wood >= 3) {
+    names.push("青木阵");
+    stats.heal += 0.26;
+  }
+  if (counts.water >= 3) {
+    names.push("沧水阵");
+    stats.slowPower += 0.3;
+    stats.range += 0.04;
+  }
+  if (counts.fire >= 3) {
+    names.push("烈火阵");
+    stats.fireRate += 0.16;
+  }
+  if (counts.earth >= 3) {
+    names.push("厚土阵");
+    stats.baseReduce += 0.12;
+  }
+  if (ELEMENT_ORDER.every((element) => counts[element] > 0)) {
+    names.push("五行阵");
+    const bonus = hasRelic("five_scroll") ? 2 : 1;
+    stats.damage += 0.12 * bonus;
+    stats.gold += 0.1 * bonus;
+    stats.elementPower += 0.08 * bonus;
+  }
+
+  return { counts, names, stats };
+}
+
+function combatStats() {
+  const weather = currentWeather();
+  const synergy = synergyInfo().stats;
+  const fogRangePenalty = weather.id === "fog" && hasRelic("quiet_bell") ? 1 : weather.range ?? 1;
+  const danger =
+    relicStat("dangerFireRate") > 0 && state.enemies.some((enemy) => enemy.x < WORLD.baseX + 180)
+      ? relicStat("dangerFireRate")
+      : 0;
+  return {
+    damage: state.upgrades.damage * relicMultiplier("damage") * (weather.unitDamage || 1) * (1 + synergy.damage),
+    fireRate: state.upgrades.fireRate * (1 + synergy.fireRate + danger) * (state.buffs.rally > 0 ? 1.28 : 1),
+    range: state.upgrades.range * fogRangePenalty * relicMultiplier("range") * (1 + synergy.range),
+    heal: state.upgrades.heal * (weather.heal || 1) * relicMultiplier("heal") * (1 + synergy.heal),
+    gold: state.upgrades.gold * relicMultiplier("gold") * (1 + synergy.gold),
+    pierce: relicStat("pierce") + synergy.pierce,
+    slowPower: relicStat("slowPower") + synergy.slowPower + ((weather.waterSlow || 1) - 1),
+    elementPower: state.upgrades.elementPower + relicStat("elementPower") + synergy.elementPower,
+    projectileSpeed: (weather.projectileSpeed || 1) * (weather.id === "wind" ? 1 + relicStat("windProjectile") : 1),
+    enemySpeed: (weather.enemySpeed || 1) * (1 - relicStat("bridgeSlow")),
+    energy: (weather.energy || 1) * (weather.id === "storm" ? 1 + relicStat("stormEnergy") : 1),
+    baseReduce: synergy.baseReduce + relicStat("baseDamageReduce"),
+  };
+}
+
 function activePathCount() {
   return Math.min(2, state.bridgeCount);
 }
@@ -477,7 +1562,7 @@ function techCost() {
 function costOf(type) {
   const meta = UNIT_TYPES[type];
   const growth = Math.pow(1.13, state.bought[type] || 0);
-  return Math.max(1, Math.round(meta.baseCost * growth * state.upgrades.discount));
+  return Math.max(1, Math.round(meta.baseCost * growth * state.upgrades.discount * (1 - relicStat("discount"))));
 }
 
 function abilityRequirementAt(choiceCount) {
@@ -492,22 +1577,23 @@ function nextAbilityRequirement() {
 function selectedUpgradeCost() {
   const unit = selectedUnit();
   if (!unit) return 0;
-  return Math.round(95 + unit.level * 88 + Math.pow(unit.level, 1.45) * 22);
+  return Math.round((95 + unit.level * 88 + Math.pow(unit.level, 1.45) * 22) * (1 - relicStat("upgradeDiscount")));
 }
 
 function claimCost() {
-  return Math.round(175 + state.territory * 125);
+  return Math.round((175 + state.territory * 125) * (1 - relicStat("claimDiscount")));
 }
 
 function spawnUnit(type, x, y, free = false) {
   if (!free && currentUnitCount() >= state.unitCap) return null;
   const meta = UNIT_TYPES[type];
-  const maxHp = meta.hp * state.upgrades.hp;
+  const elementHp = meta.element === "earth" ? 1 + relicStat("earthHp") : 1;
+  const maxHp = meta.hp * state.upgrades.hp * relicMultiplier("hp") * elementHp;
   const unit = {
     id: entityId++,
     side: "unit",
     type,
-    level: 1,
+    level: free ? 1 + relicStat("freeUnitLevel") : 1,
     x: clampDeployX(x),
     y: clampDeployY(y),
     targetX: clampDeployX(x),
@@ -518,6 +1604,10 @@ function spawnUnit(type, x, y, free = false) {
     attackFlash: 0,
     selectedPulse: rand(0, Math.PI * 2),
   };
+  if (unit.level > 1) {
+    unit.maxHp *= Math.pow(1.17, unit.level - 1);
+    unit.hp = unit.maxHp;
+  }
   state.units.push(unit);
   state.selectedId = unit.id;
   burst(unit.x, unit.y, ELEMENTS[meta.element].color, 10);
@@ -558,6 +1648,11 @@ function upgradeSelectedUnit() {
   unit.level += 1;
   unit.maxHp *= 1.17;
   unit.hp = unit.maxHp;
+  if (unit.level % 5 === 0 && relicStat("levelHeal") > 0) {
+    state.units.forEach((ally) => {
+      ally.hp = Math.min(ally.maxHp, ally.hp + ally.maxHp * relicStat("levelHeal"));
+    });
+  }
   burst(unit.x, unit.y, ELEMENTS[UNIT_TYPES[unit.type].element].color, 16);
   addFloater(unit.x, unit.y - 38, `Lv.${unit.level}`, "#ffe28e");
   saveGame();
@@ -614,8 +1709,15 @@ function claimTerritory() {
   state.canClaim = false;
   state.baseMaxHp += 90;
   state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 170);
+  if (relicStat("claimHeal") > 0) {
+    state.units.forEach((unit) => {
+      unit.hp = Math.min(unit.maxHp, unit.hp + unit.maxHp * relicStat("claimHeal"));
+    });
+  }
   if (state.territory % 2 === 0) state.unitCap += 1;
   state.bridgeCount = state.territory >= 3 ? 2 : 1;
+  state.queuedScenarioEvents += 1;
+  state.queuedRelicChoices += relicStat("relicOnClaim");
   rebuildPaths();
   burst(WORLD.width * 0.62, WORLD.height * 0.22, "#ffe28e", 24);
   showToast(`占领第 ${state.territory} 块领地`);
@@ -625,6 +1727,8 @@ function claimTerritory() {
 
 function scheduleWave() {
   state.wave += 1;
+  if (state.wave === 1 || state.wave % 4 === 1) rollWaveMutation();
+  startWaveBonuses();
   if (state.wave > 1) {
     state.wavesUntilGift -= 1;
     if (state.wavesUntilGift <= 0 && !state.modalOpen) {
@@ -638,15 +1742,33 @@ function scheduleWave() {
   state.spawnQueue = [];
   state.canClaim = false;
 
-  const count = Math.min(5 + Math.floor(state.wave * 1.02) + state.territory, 72);
+  if (state.wave >= state.nextEventWave) {
+    state.queuedScenarioEvents += 1;
+    state.nextEventWave += 5;
+  }
+
+  const mutation = currentMutation();
+  const waveCut = state.nextWaveEnemyCut > 0 ? 0.75 : 1;
+  if (state.nextWaveEnemyCut > 0) state.nextWaveEnemyCut -= 1;
+  state.rewardCutThisWave = state.nextWaveRewardCut > 0;
+  const count = Math.min(Math.round((5 + Math.floor(state.wave * 1.02) + state.territory) * waveCut * (mutation.count || 1)), 84);
   const eliteChance =
     state.wave < 4
       ? 0.04
-      : Math.min(0.12 + state.wave * 0.014 + state.territory * 0.012 + (state.techLevel || 0) * 0.003, 0.52);
+      : Math.min(
+          0.12 +
+            state.wave * 0.014 +
+            state.territory * 0.012 +
+            (state.techLevel || 0) * 0.003 +
+            (currentWeather().eliteChance || 0) +
+            relicStat("eliteChance") +
+            (mutation.eliteChance || 0),
+          0.62,
+        );
   for (let i = 0; i < count; i += 1) {
     state.spawnQueue.push({
       at: i * rand(0.38, 0.68),
-      type: pickEnemyType(state.wave),
+      type: pickEnemyType(state.wave, mutation),
       pathIndex: Math.floor(Math.random() * activePathCount()),
       elite: Math.random() < eliteChance,
     });
@@ -673,6 +1795,20 @@ function scheduleWave() {
     });
   }
 
+  if (state.eventDebt > 0) {
+    state.eventDebt -= 1;
+    state.spawnQueue.forEach((item) => {
+      item.elite = item.elite || Math.random() < 0.2;
+    });
+  }
+
+  if (state.nextWaveMines > 0) {
+    const amount = state.nextWaveMines;
+    state.nextWaveMines = 0;
+    placeMines(amount, true);
+  }
+  if (state.nextWaveRewardCut > 0) state.nextWaveRewardCut -= 1;
+
   state.spawnQueue.sort((a, b) => a.at - b.at);
   ui.waveRibbon.textContent = state.wave >= 3 && state.wave % 3 === 0 ? `第 ${state.wave} 波 首领来袭` : `第 ${state.wave} 波`;
   ui.waveRibbon.classList.remove("show");
@@ -681,7 +1817,22 @@ function scheduleWave() {
   saveGame();
 }
 
-function pickEnemyType(wave) {
+function rollWaveMutation() {
+  const candidates = WAVE_MUTATORS.filter((mutation) => mutation.id !== state.waveMutationId);
+  const mutation = candidates[Math.floor(Math.random() * candidates.length)] || WAVE_MUTATORS[0];
+  state.waveMutationId = mutation.id;
+  if (mutation.forceWeather) {
+    state.weatherId = mutation.forceWeather;
+    state.weatherClock = Math.max(state.weatherClock, 36);
+  }
+  if (state.wave > 1) addFloater(WORLD.width * 0.5, WORLD.height * 0.23, mutation.name, "#ffe28e");
+}
+
+function pickEnemyType(wave, mutation = currentMutation()) {
+  if (mutation.golemBias && Math.random() < mutation.golemBias) return "golem";
+  if (mutation.cinderBias && Math.random() < mutation.cinderBias) return "cinder";
+  if (mutation.sproutBias && Math.random() < mutation.sproutBias) return "sprout";
+  if (mutation.tideBias && Math.random() < mutation.tideBias) return "tide";
   const roll = Math.random();
   if (wave < 3) return roll < 0.55 ? "sprout" : "tide";
   if (wave < 7) {
@@ -699,6 +1850,8 @@ function pickEnemyType(wave) {
 
 function spawnEnemy(type, pathIndex, elite = false) {
   const meta = ENEMY_TYPES[type];
+  const stats = combatStats();
+  const mutation = currentMutation();
   const totalUnitLevel = state.units.reduce((sum, unit) => sum + unit.level, 0);
   const armyPower = Math.max(0, totalUnitLevel - state.units.length) * 0.075;
   const techPower = (state.techLevel || 0) * 0.12;
@@ -712,6 +1865,10 @@ function spawnEnemy(type, pathIndex, elite = false) {
     (1 + Math.pow(state.wave, 1.2) * 0.13 + state.territory * 0.08 + armyPower + techPower + upgradePressure) *
     (elite ? 3.35 : 1);
   const pos = pointOnPath(pathIndex, 0);
+  const affixes = chooseAffixes(elite, type);
+  const shieldAffix = affixes.includes("shielded") ? 0.32 : 0;
+  const hasteAffix = affixes.includes("haste") ? 1.22 : 1;
+  const taxAffix = affixes.includes("tax") ? 1.55 : 1;
   const enemy = {
     id: entityId++,
     side: "enemy",
@@ -720,16 +1877,40 @@ function spawnEnemy(type, pathIndex, elite = false) {
     progress: 0,
     x: pos.x,
     y: pos.y,
-    hp: meta.hp * scale,
-    maxHp: meta.hp * scale,
+    hp: meta.hp * scale * (mutation.enemyHp || 1) * (type === "boss" ? mutation.bossHp || 1 : 1),
+    maxHp: meta.hp * scale * (mutation.enemyHp || 1) * (type === "boss" ? mutation.bossHp || 1 : 1),
     damage:
       meta.damage *
       (1 + state.wave * 0.075 + state.territory * 0.055 + techPower * 0.45 + armyPower * 0.16) *
       state.upgrades.enemyDamage *
-      (elite ? 1.75 : 1),
-    speed: meta.speed * (1 + Math.min(state.wave * 0.011 + state.territory * 0.008, 0.72)),
-    armor: (meta.armor || 0) + Math.floor(state.wave / 4) + Math.floor(techPower * 3) + (elite ? 8 + Math.floor(state.wave / 8) : 0),
-    reward: Math.round(meta.reward * (1 + state.wave * 0.016 + state.territory * 0.026) * state.upgrades.gold),
+      (elite ? 1.75 + relicStat("eliteDamage") : 1) *
+      (mutation.enemyDamage || 1),
+    speed:
+      meta.speed *
+      (1 + Math.min(state.wave * 0.011 + state.territory * 0.008, 0.72)) *
+      stats.enemySpeed *
+      hasteAffix *
+      (mutation.enemySpeed || 1) *
+      (currentWeather().id === "fog" ? mutation.fogSpeed || 1 : 1) *
+      (currentWeather().id === "rain" ? mutation.rainSpeed || 1 : 1),
+    armor:
+      (meta.armor || 0) +
+      Math.floor(state.wave / 4) +
+      Math.floor(techPower * 3) +
+      (elite ? 8 + Math.floor(state.wave / 8) : 0) -
+      (mutation.armor || 0) -
+      relicStat("armorBreak") -
+      (elite ? relicStat("eliteArmorBreak") : 0),
+    reward: Math.round(
+      meta.reward *
+        (1 + state.wave * 0.016 + state.territory * 0.026) *
+        stats.gold *
+        taxAffix *
+        (mutation.reward || 1) *
+        (elite ? 1 + relicStat("eliteGold") : 1) *
+        (type === "boss" ? 1 + relicStat("bossGold") : 1) *
+        (state.rewardCutThisWave ? 0.7 : 1),
+    ),
     element: type === "boss" ? ELEMENT_ORDER[state.wave % ELEMENT_ORDER.length] : meta.element,
     color: meta.color,
     cooldown: rand(0.35, 0.8),
@@ -737,7 +1918,13 @@ function spawnEnemy(type, pathIndex, elite = false) {
     slowTimer: 0,
     regenClock: 0,
     elite,
+    affixes,
+    shield: meta.hp * scale * (shieldAffix + (mutation.shieldBonus || 0)) * (currentWeather().enemyShield || 1),
+    poison: 0,
+    burn: 0,
+    phase: type === "boss" ? 1 : 0,
   };
+  enemy.armor = Math.max(0, enemy.armor);
   state.enemies.push(enemy);
   if (elite) {
     state.effects.push({
@@ -751,6 +1938,7 @@ function spawnEnemy(type, pathIndex, elite = false) {
     });
     addFloater(enemy.x, enemy.y - 34, type === "boss" ? "首领" : "精英", "#ffe28e");
   }
+  return enemy;
 }
 
 function update(dt) {
@@ -758,8 +1946,10 @@ function update(dt) {
 
   state.time += dt;
   saveClock += dt;
-  if (state.upgrades.regen > 0) {
-    state.baseHp = Math.min(state.baseMaxHp, state.baseHp + state.upgrades.regen * dt);
+  updateWeather(dt);
+  updateTactics(dt);
+  if (state.upgrades.regen > 0 || relicStat("baseRegen") > 0) {
+    state.baseHp = Math.min(state.baseMaxHp, state.baseHp + (state.upgrades.regen + relicStat("baseRegen")) * dt);
   }
 
   if (state.wave === 0) scheduleWave();
@@ -769,8 +1959,12 @@ function update(dt) {
   updateEnemies(dt);
   updateProjectiles(dt);
   updateEffects(dt);
+  updateMines(dt);
+  updateFireFields(dt);
   removeDead();
   checkUpgradeChoice();
+  checkQueuedRewards();
+  checkAchievements();
   checkGameOver();
 
   if (saveClock >= 2) {
@@ -818,6 +2012,7 @@ function updateUnitMovement(dt) {
 }
 
 function updateUnits(dt) {
+  const stats = combatStats();
   state.units.forEach((unit) => {
     unit.cooldown -= dt;
     unit.attackFlash = Math.max(0, unit.attackFlash - dt * 4);
@@ -831,13 +2026,20 @@ function updateUnits(dt) {
     if (!target || unit.cooldown > 0) return;
 
     const meta = UNIT_TYPES[unit.type];
-    const rate = meta.fireRate * state.upgrades.fireRate * (1 + (unit.level - 1) * 0.06);
-    const damage = meta.damage * state.upgrades.damage * (1 + (unit.level - 1) * 0.19);
+    const typeRate = unit.type === "turret" ? 1 + relicStat("turretRate") : 1;
+    const elementDamage =
+      meta.element === "fire"
+        ? (currentWeather().fireDamage || 1) * relicMultiplier("fireDamage")
+        : meta.element === "water"
+          ? relicMultiplier("waterDamage")
+          : 1;
+    const rate = meta.fireRate * stats.fireRate * typeRate * (1 + (unit.level - 1) * 0.06);
+    const damage = meta.damage * stats.damage * elementDamage * (1 + (unit.level - 1) * 0.19);
     unit.cooldown = 1 / rate;
     unit.attackFlash = 1;
 
     if (unit.type === "guard") {
-      hitEnemy(target, damage, unit, { pierce: 0.1 });
+      hitEnemy(target, damage, unit, { pierce: 0.1 + stats.pierce });
       return;
     }
 
@@ -849,24 +2051,25 @@ function updateUnits(dt) {
       unitType: unit.type,
       element: meta.element,
       damage,
-      speed: unit.type === "turret" ? 600 : 510,
+      speed: (unit.type === "turret" ? 600 : 510) * stats.projectileSpeed,
       color: ELEMENTS[meta.element].color,
       splash: unit.type === "turret" || Math.random() < state.upgrades.splash,
       slow: unit.type === "mage",
-      pierce: unit.type === "rifle" ? 0.55 : 0,
+      pierce: (unit.type === "rifle" ? 0.55 : 0) + stats.pierce,
     });
   });
 }
 
 function healWithMedic(unit) {
+  const stats = combatStats();
   const wounded = state.units
-    .filter((ally) => ally.id !== unit.id && ally.hp < ally.maxHp && distance(unit, ally) <= 178 * state.upgrades.range)
+    .filter((ally) => ally.id !== unit.id && ally.hp < ally.maxHp && distance(unit, ally) <= 178 * stats.range)
     .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
 
   if (wounded && unit.cooldown <= 0) {
-    const heal = (25 + unit.level * 5.5) * state.upgrades.heal;
+    const heal = (25 + unit.level * 5.5) * stats.heal;
     wounded.hp = Math.min(wounded.maxHp, wounded.hp + heal);
-    unit.cooldown = 0.78 / state.upgrades.fireRate;
+    unit.cooldown = 0.78 / stats.fireRate;
     unit.attackFlash = 1;
     addFloater(wounded.x, wounded.y - 24, `+${Math.round(heal)}`, "#aaf2b0");
     burst(wounded.x, wounded.y - 14, "#aaf2b0", 6);
@@ -875,7 +2078,7 @@ function healWithMedic(unit) {
 
   const target = findTarget(unit);
   if (target && unit.cooldown <= 0) {
-    unit.cooldown = 1 / (UNIT_TYPES.medic.fireRate * state.upgrades.fireRate);
+    unit.cooldown = 1 / (UNIT_TYPES.medic.fireRate * stats.fireRate);
     state.projectiles.push({
       id: entityId++,
       x: unit.x + 12,
@@ -883,8 +2086,8 @@ function healWithMedic(unit) {
       target,
       unitType: unit.type,
       element: "wood",
-      damage: (UNIT_TYPES.medic.damage + unit.level * 1.7) * state.upgrades.damage,
-      speed: 460,
+      damage: (UNIT_TYPES.medic.damage + unit.level * 1.7) * stats.damage,
+      speed: 460 * stats.projectileSpeed,
       color: ELEMENTS.wood.color,
       splash: false,
       slow: false,
@@ -895,10 +2098,12 @@ function healWithMedic(unit) {
 
 function findTarget(unit) {
   const meta = UNIT_TYPES[unit.type];
-  const range = meta.range * state.upgrades.range * (1 + (unit.level - 1) * 0.04);
+  const stats = combatStats();
+  const range = meta.range * stats.range * (1 + (unit.level - 1) * 0.04);
   return state.enemies
     .filter((enemy) => enemy.hp > 0 && distance(unit, enemy) <= range)
     .sort((a, b) => {
+      if (relicStat("eliteFocus") && a.elite !== b.elite) return a.elite ? -1 : 1;
       const pathA = WORLD.paths[a.pathIndex] || WORLD.paths[0];
       const pathB = WORLD.paths[b.pathIndex] || WORLD.paths[0];
       const closeA = a.progress / pathA.length;
@@ -913,17 +2118,27 @@ function updateEnemies(dt) {
     enemy.cooldown -= dt;
     enemy.attackFlash = Math.max(0, enemy.attackFlash - dt * 4);
     enemy.slowTimer = Math.max(0, enemy.slowTimer - dt);
+    enemy.poison = Math.max(0, enemy.poison - dt);
+    if (enemy.burn > 0) {
+      const tick = Math.min(enemy.burn, dt);
+      enemy.burn -= tick;
+      enemy.hp -= enemy.maxHp * 0.018 * tick;
+    }
+    updateBossPhase(enemy);
 
     if (enemy.type === "sprout") {
       enemy.regenClock += dt;
       if (enemy.regenClock >= 1) {
         enemy.regenClock = 0;
-        enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.maxHp * 0.018);
+        enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.maxHp * 0.018 * (currentMutation().regen || 1));
       }
     }
 
     const blocker = state.units
-      .filter((unit) => unit.hp > 0 && distance(unit, enemy) < (unit.type === "guard" ? 42 : 31))
+      .filter((unit) => {
+        const guardBonus = unit.type === "guard" ? 1 + relicStat("guardBlock") : 1;
+        return unit.hp > 0 && distance(unit, enemy) < (unit.type === "guard" ? 42 * guardBonus : 31);
+      })
       .sort((a, b) => b.hp - a.hp)[0];
 
     if (blocker) {
@@ -937,7 +2152,7 @@ function updateEnemies(dt) {
       return;
     }
 
-    const slowFactor = enemy.slowTimer > 0 ? 0.48 : 1;
+    const slowFactor = enemy.slowTimer > 0 ? Math.max(0.18, 0.48 - combatStats().slowPower * 0.16) : 1;
     enemy.progress += enemy.speed * slowFactor * dt;
     const pos = pointOnPath(enemy.pathIndex, enemy.progress);
     enemy.x = pos.x;
@@ -950,6 +2165,11 @@ function attackUnit(enemy, unit) {
   enemy.cooldown = 0.82;
   enemy.attackFlash = 1;
   unit.hp -= enemy.damage;
+  if (enemy.affixes?.includes("vampire")) enemy.hp = Math.min(enemy.maxHp, enemy.hp + enemy.damage * 1.8);
+  if (enemy.affixes?.includes("venom")) {
+    unit.hp -= enemy.damage * 0.25;
+    addFloater(unit.x, unit.y - 38, "毒", "#77c66e");
+  }
   addFloater(unit.x, unit.y - 24, `-${Math.round(enemy.damage)}`, "#ff9f85");
   burst(unit.x, unit.y, "#d64b45", 4);
 }
@@ -958,7 +2178,7 @@ function attackBase(enemy) {
   if (enemy.cooldown > 0) return;
   enemy.cooldown = 0.7;
   enemy.attackFlash = 1;
-  state.baseHp -= enemy.damage;
+  state.baseHp -= enemy.damage * Math.max(0.25, 1 - combatStats().baseReduce);
   addFloater(WORLD.baseX, enemy.y - 24, `-${Math.round(enemy.damage)}`, "#ff9f85");
   burst(WORLD.baseX, enemy.y, "#d64b45", 6);
 }
@@ -979,7 +2199,7 @@ function updateProjectiles(dt) {
     if (dist <= travel || dist < 8) {
       hitEnemy(target, projectile.damage, projectile, projectile);
       if (projectile.slow) {
-        target.slowTimer = Math.max(target.slowTimer, 1.8);
+        target.slowTimer = Math.max(target.slowTimer, 1.8 * (1 + combatStats().slowPower));
         addFloater(target.x, target.y - 34, "缓速", ELEMENTS.water.color);
       }
       projectile.dead = true;
@@ -994,7 +2214,7 @@ function updateProjectiles(dt) {
 
 function elementMultiplier(attackerElement, defenderElement) {
   if (!attackerElement || !defenderElement) return 1;
-  if (ELEMENTS[attackerElement].beats === defenderElement) return 1.35 + state.upgrades.elementPower;
+  if (ELEMENTS[attackerElement].beats === defenderElement) return 1.35 + combatStats().elementPower;
   if (ELEMENTS[defenderElement].beats === attackerElement) return 0.76;
   return 1 + (state.elementBoost[attackerElement] || 0);
 }
@@ -1003,9 +2223,36 @@ function hitEnemy(enemy, rawDamage, source, options = {}) {
   const attackerElement = source.element || UNIT_TYPES[source.type]?.element;
   const multiplier = elementMultiplier(attackerElement, enemy.element);
   const armor = enemy.armor * (1 - (options.pierce || 0));
-  const damage = Math.max(1, rawDamage * multiplier - armor);
+  const critChance =
+    (attackerElement === "metal" ? relicStat("metalCrit") : 0) +
+    (source.unitType === "rifle" || source.type === "rifle" ? 0.03 : 0);
+  const crit = Math.random() < critChance;
+  const bossTaken = enemy.type === "boss" ? 1 + relicStat("bossDamageTaken") : 1;
+  const slowTaken = enemy.slowTimer > 0 ? 1 + relicStat("slowDamageTaken") : 1;
+  let damage = Math.max(1, rawDamage * multiplier * bossTaken * slowTaken * (crit ? 1.75 : 1) - armor);
+  if (enemy.shield > 0) {
+    const absorbed = Math.min(enemy.shield, damage);
+    enemy.shield -= absorbed;
+    damage -= absorbed;
+    addFloater(enemy.x, enemy.y - 34, `盾-${Math.round(absorbed)}`, "#9ed0d2");
+  }
   enemy.hp -= damage;
   enemy.attackFlash = Math.max(enemy.attackFlash, 0.45);
+  if ((source.unitType === "turret" || attackerElement === "fire") && Math.random() < relicStat("burnChance")) {
+    enemy.burn = Math.max(enemy.burn || 0, 3.2);
+    addFloater(enemy.x, enemy.y - 46, "灼烧", ELEMENTS.fire.color);
+  }
+  if (attackerElement === "water" && Math.random() < relicStat("waterRoot")) {
+    enemy.slowTimer = Math.max(enemy.slowTimer, 3.4);
+    addFloater(enemy.x, enemy.y - 48, "冰封", ELEMENTS.water.color);
+  }
+  const chainChance = relicStat("chainChance") + (attackerElement === "fire" ? relicStat("fireChainBonus") : 0);
+  if (!options.chainDepth && Math.random() < chainChance) {
+    const next = state.enemies
+      .filter((item) => item.id !== enemy.id && item.hp > 0 && distance(item, enemy) < 115)
+      .sort((a, b) => distance(a, enemy) - distance(b, enemy))[0];
+    if (next) hitEnemy(next, rawDamage * 0.46, source, { ...options, chainDepth: 1 });
+  }
   state.effects.push({
     type: "ring",
     x: enemy.x,
@@ -1015,7 +2262,7 @@ function hitEnemy(enemy, rawDamage, source, options = {}) {
     maxLife: 0.34,
     radius: multiplier > 1.2 ? 44 : 28,
   });
-  addFloater(enemy.x, enemy.y - 18, `${Math.round(damage)}`, source.color || "#fff2c7");
+  addFloater(enemy.x, enemy.y - 18, `${crit ? "暴 " : ""}${Math.round(damage)}`, source.color || "#fff2c7");
   if (multiplier > 1.2) addFloater(enemy.x, enemy.y - 32, "克制", ELEMENTS[attackerElement].color);
   burst(enemy.x, enemy.y - 8, source.color || ELEMENTS[attackerElement]?.color || "#f8f2cd", multiplier > 1.2 ? 7 : 4);
 }
@@ -1032,6 +2279,15 @@ function splashDamage(origin, damage, source) {
 function removeDead() {
   state.units = state.units.filter((unit) => {
     if (unit.hp > 0) return true;
+    if (relicStat("deathSave") > 0 && Math.random() < relicStat("deathSave")) {
+      unit.hp = 1;
+      state.enemies.forEach((enemy) => {
+        if (distance(unit, enemy) < 95) enemy.slowTimer = Math.max(enemy.slowTimer, 2);
+      });
+      addFloater(unit.x, unit.y - 36, "魂灯", "#ffe28e");
+      burst(unit.x, unit.y, "#ffe28e", 16);
+      return true;
+    }
     if (state.selectedId === unit.id) state.selectedId = null;
     burst(unit.x, unit.y, "#8d6250", 10);
     return false;
@@ -1049,6 +2305,15 @@ function removeDead() {
     addFloater(enemy.x, enemy.y - 22, `+${enemy.reward}`, "#ffe28e");
     burst(enemy.x, enemy.y, ELEMENTS[enemy.element].color, 14);
     if (enemy.type === "cinder") explodeEnemy(enemy);
+    if (enemy.affixes?.includes("split") && enemy.type !== "boss") {
+      splitEnemy(enemy).forEach((child) => survivors.push(child));
+    }
+    if (enemy.type === "boss") {
+      state.bossKills += 1;
+      state.queuedRelicChoices += 1;
+      state.energy = Math.min(state.maxEnergy, state.energy + 28);
+      addFloater(enemy.x, enemy.y - 52, "遗物", "#ffe28e");
+    }
   });
   state.enemies = survivors;
 }
@@ -1057,6 +2322,7 @@ function explodeEnemy(enemy) {
   state.units.forEach((unit) => {
     if (distance(unit, enemy) < 72) {
       unit.hp -= enemy.damage * 0.55;
+      unit.hp -= enemy.damage * 0.55 * ((currentMutation().explosion || 1) - 1);
       addFloater(unit.x, unit.y - 28, "爆", ELEMENTS.fire.color);
     }
   });
@@ -1131,10 +2397,10 @@ function buildGiftRewards() {
   const randomElement = ELEMENT_ORDER[Math.floor(Math.random() * ELEMENT_ORDER.length)];
   return [
     {
-      title: `金币补给 +${180 + state.territory * 45}`,
+      title: `金币补给 +${Math.round((180 + state.territory * 45) * (1 + relicStat("giftGold")))}`,
       desc: "直接获得一笔金币",
       apply: () => {
-        const gain = 180 + state.territory * 45;
+        const gain = Math.round((180 + state.territory * 45) * (1 + relicStat("giftGold")));
         state.coins += gain;
         state.lifetimeCoins += gain;
       },
@@ -1172,7 +2438,21 @@ function buildGiftRewards() {
       desc: "修复城门并提高少量上限",
       apply: () => {
         state.baseMaxHp += 80;
-        state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 260);
+        state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 260 * (1 + relicStat("giftHeal")));
+      },
+    },
+    {
+      title: "遗物线索",
+      desc: "从两个遗物中选择一个",
+      apply: () => {
+        state.queuedRelicChoices += 1;
+      },
+    },
+    {
+      title: "能量晶石",
+      desc: "恢复大量战术能量",
+      apply: () => {
+        state.energy = Math.min(state.maxEnergy, state.energy + 65);
       },
     },
   ];
@@ -1181,6 +2461,431 @@ function buildGiftRewards() {
 function closeModal() {
   state.modalOpen = false;
   ui.choiceModal.hidden = true;
+}
+
+function updateWeather(dt) {
+  state.weatherClock -= dt;
+  if (state.weatherClock > 0) return;
+  const currentIndex = WEATHER_TYPES.findIndex((weather) => weather.id === state.weatherId);
+  const nextIndex = (currentIndex + 1 + Math.floor(rand(1, WEATHER_TYPES.length))) % WEATHER_TYPES.length;
+  const next = WEATHER_TYPES[nextIndex] || WEATHER_TYPES[0];
+  state.weatherId = next.id;
+  state.weatherClock = next.duration * (next.id === "rain" ? 1 + relicStat("rainDuration") : 1);
+  state.weatherSeed += 1;
+  addFloater(WORLD.width * 0.5, WORLD.height * 0.18, `${next.name}天气`, "#fff2c7");
+}
+
+function updateTactics(dt) {
+  const stats = combatStats();
+  state.maxEnergy = 100 + relicStat("maxEnergy");
+  state.energy = Math.min(state.maxEnergy, state.energy + (5.2 + state.techLevel * 0.12) * stats.energy * dt);
+  Object.keys(state.tacticCooldowns).forEach((id) => {
+    state.tacticCooldowns[id] = Math.max(0, state.tacticCooldowns[id] - dt);
+  });
+  state.buffs.rally = Math.max(0, state.buffs.rally - dt);
+  state.buffs.danger = Math.max(0, state.buffs.danger - dt);
+}
+
+function canUseTactic(id) {
+  const tactic = TACTICS[id];
+  return (
+    tactic &&
+    !state.gameOver &&
+    !state.modalOpen &&
+    state.energy >= tactic.cost &&
+    state.tacticCooldowns[id] <= 0
+  );
+}
+
+function useTactic(id) {
+  if (!canUseTactic(id)) {
+    const tactic = TACTICS[id];
+    if (!tactic) return;
+    showToast(state.tacticCooldowns[id] > 0 ? "战术冷却中" : "能量不足");
+    return;
+  }
+  const tactic = TACTICS[id];
+  state.energy -= tactic.cost;
+  state.tacticCooldowns[id] = tactic.cooldown;
+  if (id === "storm") castStorm();
+  if (id === "frost") castFrost();
+  if (id === "rally") castRally();
+  if (id === "mine") castMinefield();
+  saveGame();
+  updateUi();
+}
+
+function castStorm() {
+  const damage = (46 + state.wave * 7 + state.techLevel * 9) * (1 + relicStat("stormDamage")) * (currentWeather().stormDamage || 1);
+  let eliteHits = 0;
+  state.enemies.forEach((enemy) => {
+    const amount = damage * (enemy.elite ? 1.55 : 1);
+    hitEnemy(enemy, amount, { element: "metal", color: TACTICS.storm.color }, { pierce: 0.25 });
+    enemy.slowTimer = Math.max(enemy.slowTimer, 0.5);
+    if (enemy.elite) eliteHits += 1;
+  });
+  state.energy = Math.min(state.maxEnergy, state.energy + Math.min(24, eliteHits * relicStat("eliteEnergyRefund")));
+  state.effects.push({
+    type: "ring",
+    x: WORLD.width * 0.5,
+    y: WORLD.height * 0.45,
+    color: TACTICS.storm.color,
+    life: 0.6,
+    maxLife: 0.6,
+    radius: 120,
+  });
+  showToast("雷令轰落");
+}
+
+function castFrost() {
+  const duration = 3.2 * (1 + relicStat("frostDuration")) * (1 + combatStats().slowPower * 0.25);
+  state.enemies.forEach((enemy) => {
+    enemy.slowTimer = Math.max(enemy.slowTimer, duration);
+    enemy.attackFlash = 1;
+    hitEnemy(enemy, 16 + state.techLevel * 4, { element: "water", color: TACTICS.frost.color }, { pierce: 0.05 });
+  });
+  state.effects.push({
+    type: "ring",
+    x: WORLD.width * 0.55,
+    y: WORLD.height * 0.52,
+    color: TACTICS.frost.color,
+    life: 0.8,
+    maxLife: 0.8,
+    radius: 160,
+  });
+  showToast("霜阵展开");
+}
+
+function castRally() {
+  const duration = 8 + relicStat("rallyDuration");
+  state.buffs.rally = duration;
+  state.units.forEach((unit) => {
+    const heal = unit.maxHp * 0.18 * combatStats().heal;
+    unit.hp = Math.min(unit.maxHp, unit.hp + heal);
+    burst(unit.x, unit.y, TACTICS.rally.color, 8);
+  });
+  showToast("战鼓齐鸣");
+}
+
+function castMinefield() {
+  placeMines(4 + relicStat("mineCount"), false);
+  showToast("火雷已布置");
+}
+
+function placeMines(amount, quiet = false) {
+  const total = Math.max(1, Math.round(amount));
+  for (let i = 0; i < total; i += 1) {
+    const pathIndex = i % activePathCount();
+    const path = WORLD.paths[pathIndex] || WORLD.paths[0];
+    const progress = path.length * rand(0.18, 0.82);
+    const pos = pointOnPath(pathIndex, progress);
+    state.mines.push({
+      id: entityId++,
+      pathIndex,
+      x: pos.x,
+      y: pos.y,
+      progress,
+      radius: 42 * (1 + relicStat("mineRadius")),
+      damage: 95 + state.wave * 11 + state.techLevel * 14,
+      armed: 0.25,
+    });
+  }
+  if (!quiet) burst(WORLD.width * 0.55, WORLD.height * 0.58, TACTICS.mine.color, 18);
+}
+
+function updateMines(dt) {
+  state.mines.forEach((mine) => {
+    mine.armed = Math.max(0, mine.armed - dt);
+    if (mine.armed > 0) return;
+    const target = state.enemies.find((enemy) => enemy.hp > 0 && Math.hypot(enemy.x - mine.x, enemy.y - mine.y) < mine.radius);
+    if (!target) return;
+    state.enemies.forEach((enemy) => {
+      if (enemy.hp > 0 && Math.hypot(enemy.x - mine.x, enemy.y - mine.y) < mine.radius * 1.25) {
+        hitEnemy(enemy, mine.damage, { element: "fire", color: TACTICS.mine.color }, { pierce: 0.08 });
+      }
+    });
+    if (relicStat("mineFireField")) {
+      state.fireFields.push({
+        id: entityId++,
+        x: mine.x,
+        y: mine.y,
+        radius: mine.radius * 1.1,
+        life: 4.2,
+        tick: 0,
+      });
+    }
+    burst(mine.x, mine.y, TACTICS.mine.color, 20);
+    mine.dead = true;
+  });
+  state.mines = state.mines.filter((mine) => !mine.dead);
+}
+
+function updateFireFields(dt) {
+  state.fireFields.forEach((field) => {
+    field.life -= dt;
+    field.tick -= dt;
+    if (field.tick <= 0) {
+      field.tick = 0.45;
+      state.enemies.forEach((enemy) => {
+        if (enemy.hp > 0 && Math.hypot(enemy.x - field.x, enemy.y - field.y) < field.radius) {
+          hitEnemy(enemy, 18 + state.wave * 1.8, { element: "fire", color: TACTICS.mine.color }, { pierce: 0.04 });
+        }
+      });
+    }
+  });
+  state.fireFields = state.fireFields.filter((field) => field.life > 0);
+}
+
+function startWaveBonuses() {
+  state.energy = Math.min(state.maxEnergy, state.energy + relicStat("waveEnergy"));
+  if (relicStat("waveShield") > 0) {
+    state.buffs.waveShield = relicStat("waveShield");
+    state.baseHp = Math.min(state.baseMaxHp, state.baseHp + relicStat("waveShield"));
+  }
+  if (relicStat("periodicLevel") > 0 && state.wave > 0 && state.wave % relicStat("periodicLevel") === 0) {
+    const unit = [...state.units].sort((a, b) => a.level - b.level)[0];
+    if (unit) {
+      unit.level += 1;
+      unit.maxHp *= 1.12;
+      unit.hp = unit.maxHp;
+      addFloater(unit.x, unit.y - 40, "青契 +1", "#77c66e");
+    }
+  }
+}
+
+function chooseAffixes(elite, type) {
+  if (!elite && type !== "boss") return [];
+  const count = type === "boss" ? 2 : state.wave >= 12 ? 2 : 1;
+  const pool = [...ENEMY_AFFIXES].sort(() => Math.random() - 0.5);
+  const ids = pool.slice(0, count).map((affix) => affix.id);
+  const mutation = currentMutation();
+  if (mutation.hasteBias && Math.random() < mutation.hasteBias && !ids.includes("haste")) ids[0] = "haste";
+  if (mutation.shieldBonus && !ids.includes("shielded")) ids[0] = "shielded";
+  return ids;
+}
+
+function splitEnemy(enemy) {
+  const type = enemy.type === "golem" ? "shell" : "tide";
+  const children = [];
+  for (let i = 0; i < 2; i += 1) {
+    const child = spawnEnemy(type, enemy.pathIndex, false);
+    if (!child) continue;
+    child.progress = Math.max(0, enemy.progress - 20 + i * 12);
+    const pos = pointOnPath(enemy.pathIndex, child.progress);
+    child.x = pos.x;
+    child.y = pos.y + (i === 0 ? -12 : 12);
+    child.hp *= 0.38;
+    child.maxHp = child.hp;
+    child.reward = Math.max(1, Math.round(child.reward * 0.25));
+    children.push(child);
+  }
+  return children;
+}
+
+function updateBossPhase(enemy) {
+  if (enemy.type !== "boss" || enemy.hp <= 0) return;
+  const ratio = enemy.hp / enemy.maxHp;
+  if (enemy.phase === 1 && ratio < 0.66) triggerBossPhase(enemy, 2);
+  if (enemy.phase === 2 && ratio < 0.33) triggerBossPhase(enemy, 3);
+}
+
+function triggerBossPhase(enemy, phase) {
+  enemy.phase = phase;
+  enemy.shield += enemy.maxHp * 0.18;
+  enemy.slowTimer = 0;
+  addFloater(enemy.x, enemy.y - 58, `首领 ${phase} 段`, "#ffe28e");
+  burst(enemy.x, enemy.y, ELEMENTS[enemy.element].color, 28);
+  for (let i = 0; i < phase; i += 1) {
+    const type = ["sprout", "cinder", "tide", "shell"][Math.floor(Math.random() * 4)];
+    const minion = spawnEnemy(type, enemy.pathIndex, i === 0);
+    if (minion) {
+      minion.progress = Math.max(0, enemy.progress - 60 - i * 20);
+      const pos = pointOnPath(enemy.pathIndex, minion.progress);
+      minion.x = pos.x;
+      minion.y = pos.y + rand(-24, 24);
+    }
+  }
+}
+
+function checkQueuedRewards() {
+  if (state.modalOpen || state.gameOver) return;
+  if (state.queuedRelicChoices > 0) {
+    state.queuedRelicChoices -= 1;
+    showRelicChoice();
+    return;
+  }
+  if (state.queuedScenarioEvents > 0) {
+    state.queuedScenarioEvents -= 1;
+    showScenarioEvent();
+  }
+}
+
+function showRelicChoice(filter = null) {
+  const available = RELIC_POOL.filter((relic) => !hasRelic(relic.id) && (!filter || filter(relic)));
+  const choices = (available.length ? available : RELIC_POOL).sort(() => Math.random() - 0.5).slice(0, 3);
+  state.modalOpen = true;
+  ui.choiceTitle.textContent = "选择遗物";
+  ui.choiceGrid.innerHTML = "";
+  choices.forEach((relic) => {
+    const card = document.createElement("button");
+    card.className = "choice-card relic-card";
+    card.type = "button";
+    card.innerHTML = `
+      <span class="choice-icon text-icon" data-label="遗" aria-hidden="true"></span>
+      <strong>${relic.name}</strong>
+      <span>${relic.rank}<br>${relic.desc}</span>
+    `;
+    card.addEventListener("click", () => {
+      addRelic(relic);
+      closeModal();
+      showToast(`获得遗物：${relic.name}`);
+      saveGame();
+      updateUi();
+    });
+    ui.choiceGrid.appendChild(card);
+  });
+  ui.choiceNote.textContent = "遗物会改变整局构筑";
+  ui.choiceModal.hidden = false;
+}
+
+function addRelic(relic) {
+  if (!relic || hasRelic(relic.id)) return;
+  state.relics.push(relic.id);
+  state.seenRelics[relic.id] = true;
+  Object.entries(relic.stats || {}).forEach(([key, value]) => {
+    state.relicStats[key] = (state.relicStats[key] || 0) + value;
+  });
+  if (relic.stats?.unitCap) state.unitCap += relic.stats.unitCap;
+  if (relic.stats?.maxEnergy) state.maxEnergy += relic.stats.maxEnergy;
+  if (relic.stats?.baseMaxPct) {
+    state.baseMaxHp = Math.round(state.baseMaxHp * (1 + relic.stats.baseMaxPct));
+    state.baseHp = Math.min(state.baseMaxHp, state.baseHp + state.baseMaxHp * relic.stats.baseMaxPct);
+  }
+}
+
+function showScenarioEvent() {
+  const event = SCENARIO_EVENTS[Math.floor(Math.random() * SCENARIO_EVENTS.length)];
+  state.modalOpen = true;
+  ui.choiceTitle.textContent = event.title;
+  ui.choiceGrid.innerHTML = "";
+  event.choices.forEach((choice) => {
+    const card = document.createElement("button");
+    card.className = "choice-card event-card";
+    card.type = "button";
+    card.innerHTML = `
+      <span class="choice-icon text-icon" data-label="遇" aria-hidden="true"></span>
+      <strong>${choice.title}</strong>
+      <span>${choice.desc}</span>
+    `;
+    card.addEventListener("click", () => {
+      applyScenarioEffect(choice.effect);
+      closeModal();
+      showToast(choice.title);
+      saveGame();
+      updateUi();
+    });
+    ui.choiceGrid.appendChild(card);
+  });
+  ui.choiceNote.textContent = event.note;
+  ui.choiceModal.hidden = false;
+}
+
+function applyScenarioEffect(effect) {
+  const gain = Math.round(160 + state.wave * 22 + state.territory * 55);
+  if (effect === "buyMines") {
+    const cost = Math.min(state.coins, Math.round(gain * 0.65));
+    state.coins -= cost;
+    placeMines(5);
+  } else if (effect === "debtUnit") {
+    const type = Object.keys(UNIT_TYPES)[Math.floor(Math.random() * Object.keys(UNIT_TYPES).length)];
+    spawnUnit(type, WORLD.deployLeft + rand(55, 150), pathY(0, 0.64) + rand(-50, 50), true);
+    state.eventDebt += 1;
+  } else if (effect === "food") {
+    state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 260);
+    state.energy = Math.min(state.maxEnergy, state.energy + 36);
+  } else if (effect === "metalBlessing") {
+    state.relicStats.metalCrit = (state.relicStats.metalCrit || 0) + 0.06;
+  } else if (effect === "waterBlessing") {
+    state.relicStats.slowPower = (state.relicStats.slowPower || 0) + 0.12;
+  } else if (effect === "earthBlessing") {
+    state.baseMaxHp += 120;
+    state.relicStats.baseDamageReduce = (state.relicStats.baseDamageReduce || 0) + 0.04;
+  } else if (effect === "repairBridge") {
+    state.relicStats.bridgeSlow = (state.relicStats.bridgeSlow || 0) + 0.04;
+    rebuildPaths();
+  } else if (effect === "breakBridge") {
+    state.nextWaveEnemyCut += 1;
+    state.nextWaveRewardCut += 1;
+  } else if (effect === "ambush") {
+    state.nextWaveMines += 6;
+  } else if (effect === "takeCraftsmen") {
+    state.baseMaxHp += 220;
+    state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 220);
+    state.upgrades.discount *= 1.06;
+  } else if (effect === "militia") {
+    spawnUnit("guard", WORLD.deployLeft + rand(55, 140), pathY(0, 0.7), true);
+    spawnUnit("rifle", WORLD.deployLeft + rand(95, 190), pathY(0, 0.62), true);
+  } else if (effect === "escort") {
+    state.energy = Math.min(state.maxEnergy, state.energy + 80);
+  } else if (effect === "beacon") {
+    state.weatherId = "clear";
+    state.weatherClock = 45;
+    state.relicStats.fireDamage = (state.relicStats.fireDamage || 0) + 0.08;
+  } else if (effect === "listen") {
+    state.relicStats.range = (state.relicStats.range || 0) + 0.08;
+    state.eventDebt += 1;
+  } else if (effect === "defRelic") {
+    state.queuedRelicChoices += 1;
+  } else if (effect === "mineGold") {
+    state.coins += gain * 2;
+    state.lifetimeCoins += gain * 2;
+    state.spawnQueue.push({ at: 1.5, type: "golem", pathIndex: 0, elite: true });
+  } else if (effect === "sealMine") {
+    state.relicStats.armorBreak = (state.relicStats.armorBreak || 0) + 1;
+  } else if (effect === "forgeArrows") {
+    state.relicStats.damage = (state.relicStats.damage || 0) + 0.05;
+    state.relicStats.pierce = (state.relicStats.pierce || 0) + 0.04;
+  }
+}
+
+function achievementValue(type) {
+  if (type === "kills") return state.kills;
+  if (type === "wave") return state.wave;
+  if (type === "relics") return state.relics.length;
+  if (type === "territory") return state.territory;
+  if (type === "tech") return state.techLevel;
+  if (type === "highestUnit") return highestUnitLevel();
+  if (type === "fullTeam") return currentUnitCount() >= state.unitCap ? 1 : 0;
+  if (type === "fiveElements") return ELEMENT_ORDER.every((element) => synergyInfo().counts[element] > 0) ? 1 : 0;
+  if (type === "maxEnergy") return state.maxEnergy;
+  if (type === "lifetimeCoins") return state.lifetimeCoins;
+  if (type === "bossKills") return state.bossKills;
+  return 0;
+}
+
+function checkAchievements() {
+  ACHIEVEMENTS.forEach((achievement) => {
+    if (state.achievements[achievement.id]) return;
+    if (achievementValue(achievement.type) < achievement.target) return;
+    state.achievements[achievement.id] = true;
+    state.latestAchievement = achievement.title;
+    applyAchievementReward(achievement.reward || {});
+    addFloater(WORLD.width * 0.5, WORLD.height * 0.16, `战功：${achievement.title}`, "#ffe28e");
+    showToast(`战功达成：${achievement.title}`);
+  });
+}
+
+function applyAchievementReward(reward) {
+  if (reward.coins) {
+    state.coins += reward.coins;
+    state.lifetimeCoins += reward.coins;
+  }
+  if (reward.energy) {
+    state.energy = Math.min(state.maxEnergy, state.energy + reward.energy);
+  }
+  if (reward.relic) {
+    state.queuedRelicChoices += reward.relic;
+  }
 }
 
 function checkGameOver() {
@@ -1246,6 +2951,7 @@ function showToast(text) {
 }
 
 function updateUi() {
+  if (ui.version) ui.version.textContent = "V9 大扩展版";
   ui.coins.textContent = Math.floor(state.coins);
   ui.territory.textContent = state.territory;
   ui.wave.textContent = state.wave || 1;
@@ -1255,6 +2961,28 @@ function updateUi() {
   if (ui.techStatus) ui.techStatus.textContent = `科技 ${state.techLevel}/${cap}`;
   ui.best.textContent = `最佳 ${Math.max(state.bestWave, state.wave)}`;
   ui.gift.textContent = `补给 ${state.wavesUntilGift}波`;
+  if (ui.energy) ui.energy.textContent = `能量 ${Math.floor(state.energy)}/${Math.floor(state.maxEnergy)}`;
+  if (ui.weather) ui.weather.textContent = `天气 ${currentWeather().name}`;
+  if (ui.synergy) {
+    const names = synergyInfo().names;
+    ui.synergy.textContent = names.length ? `羁绊 ${names.slice(0, 2).join(" ")}` : "羁绊 未成阵";
+  }
+  if (ui.relic) {
+    const lastRelic = state.relics[state.relics.length - 1];
+    const relic = RELIC_POOL.find((item) => item.id === lastRelic);
+    ui.relic.textContent = relic ? `遗物 ${state.relics.length} ${relic.name}` : `遗物 ${state.relics.length}`;
+  }
+  if (ui.objective) {
+    ui.objective.textContent =
+      state.wave >= 3 && (state.wave + 1) % 3 === 0
+        ? `目标 准备首领 · ${currentMutation().name}`
+        : `异变 ${currentMutation().name} · ${regionName()}`;
+  }
+  if (ui.achievement) {
+    ui.achievement.textContent = state.latestAchievement
+      ? `战功 ${Object.keys(state.achievements).length} ${state.latestAchievement}`
+      : `战功 ${Object.keys(state.achievements).length}`;
+  }
   ui.pauseIcon.textContent = state.paused ? "▶" : "II";
   ui.pauseBtn.setAttribute("aria-label", state.paused ? "继续" : "暂停");
   ui.speedBtn.textContent = `${state.speed}x`;
@@ -1277,6 +3005,15 @@ function updateUi() {
     const type = button.dataset.buy;
     button.disabled = state.gameOver || state.modalOpen || currentUnitCount() >= state.unitCap || state.coins < costOf(type);
   });
+
+  Object.entries(TACTICS).forEach(([id, tactic]) => {
+    const button = ui.tacticButtons[id];
+    const status = ui.tacticStatus[id];
+    if (!button || !status) return;
+    const cooldown = state.tacticCooldowns[id] || 0;
+    button.disabled = !canUseTactic(id);
+    status.textContent = cooldown > 0 ? `${Math.ceil(cooldown)}秒` : `${tactic.cost} 能量`;
+  });
 }
 
 function render() {
@@ -1288,6 +3025,8 @@ function render() {
   drawBackground(w, h);
   drawMapNodes(w, h);
   drawPaths();
+  drawFireFields();
+  drawMines();
   drawBase(w, h);
   drawEnemyFort(w, h);
   drawEntities();
@@ -1296,6 +3035,7 @@ function render() {
   drawParticles();
   drawFloaters();
   drawForeground(w, h);
+  drawWeatherOverlay(w, h);
 }
 
 function drawBackground(w, h) {
@@ -1671,6 +3411,34 @@ function drawEnemy(enemy) {
     ctx.fillText(enemy.type === "boss" ? "王" : "精", 0, 8);
   }
 
+  if (enemy.shield > 0) {
+    ctx.strokeStyle = "#9ed0d2";
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.75;
+    ctx.beginPath();
+    ctx.arc(0, -3, 31, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  if (enemy.affixes?.length) {
+    enemy.affixes.slice(0, 2).forEach((affixId, index) => {
+      const affix = ENEMY_AFFIXES.find((item) => item.id === affixId);
+      if (!affix) return;
+      ctx.fillStyle = affix.color;
+      ctx.strokeStyle = "#1b1713";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(-14 + index * 28, 27, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#1b1713";
+      ctx.font = "900 9px Microsoft YaHei, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(affix.name, -14 + index * 28, 30);
+    });
+  }
+
   ctx.fillStyle = elem.color;
   ctx.strokeStyle = "#1b1713";
   ctx.lineWidth = 3;
@@ -1685,6 +3453,9 @@ function drawEnemy(enemy) {
   ctx.restore();
 
   drawHpBar(x - 25 * scale, y - 50 * scale, 50 * scale, enemy.hp / enemy.maxHp, "#e85c4f");
+  if (enemy.shield > 0) {
+    drawHpBar(x - 25 * scale, y - 58 * scale, 50 * scale, enemy.shield / enemy.maxHp, "#9ed0d2");
+  }
 }
 
 function drawEnemyTrait(type) {
@@ -1766,6 +3537,44 @@ function drawProjectiles() {
   });
 }
 
+function drawMines() {
+  state.mines.forEach((mine) => {
+    const pulse = 0.75 + Math.sin(state.time * 7 + mine.id) * 0.25;
+    ctx.save();
+    ctx.translate(mine.x, mine.y);
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.beginPath();
+    ctx.ellipse(0, 7, 15, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = TACTICS.mine.color;
+    ctx.strokeStyle = "#1b1713";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(232, 104, 71, ${0.3 * pulse})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, mine.radius * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+
+function drawFireFields() {
+  state.fireFields.forEach((field) => {
+    const t = clamp(field.life / 4.2, 0, 1);
+    const gradient = ctx.createRadialGradient(field.x, field.y, 0, field.x, field.y, field.radius);
+    gradient.addColorStop(0, `rgba(255, 206, 90, ${0.24 * t})`);
+    gradient.addColorStop(1, `rgba(232, 104, 71, ${0.02 * t})`);
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(field.x, field.y, field.radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
 function drawEffects() {
   state.effects.forEach((effect) => {
     const t = clamp(effect.life / effect.maxLife, 0, 1);
@@ -1807,6 +3616,34 @@ function drawFloaters() {
 function drawForeground(w, h) {
   ctx.fillStyle = "rgba(35, 31, 25, 0.16)";
   ctx.fillRect(0, h - 18, w, 18);
+}
+
+function drawWeatherOverlay(w, h) {
+  const weather = currentWeather();
+  ctx.fillStyle = weather.tint || "rgba(255,255,255,0)";
+  ctx.fillRect(0, 0, w, h);
+  if (weather.id === "rain" || weather.id === "storm") {
+    ctx.strokeStyle = weather.id === "storm" ? "rgba(210, 218, 255, 0.42)" : "rgba(190, 228, 248, 0.34)";
+    ctx.lineWidth = weather.id === "storm" ? 2 : 1;
+    for (let i = 0; i < 55; i += 1) {
+      const x = (i * 97 + state.weatherSeed * 41 + state.time * 180) % (w + 120) - 60;
+      const y = (i * 53 + state.time * 420) % (h + 80) - 40;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 14, y + 28);
+      ctx.stroke();
+    }
+  }
+  if (weather.id === "fog") {
+    ctx.fillStyle = "rgba(230, 235, 222, 0.06)";
+    for (let i = 0; i < 7; i += 1) {
+      const x = ((i * 173 + state.time * 24) % (w + 180)) - 90;
+      const y = h * (0.28 + (i % 5) * 0.1);
+      ctx.beginPath();
+      ctx.ellipse(x, y, 120, 18, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 }
 
 function roundRect(x, y, width, height, radius, fill, stroke) {
@@ -1874,7 +3711,7 @@ function handlePointerUp() {
 function saveGame() {
   if (!state || state.gameOver) return;
   const payload = {
-    version: 4,
+    version: 5,
     wave: state.wave,
     bridgeCount: state.bridgeCount,
     territory: state.territory,
@@ -1882,15 +3719,33 @@ function saveGame() {
     wavesUntilGift: state.wavesUntilGift,
     coins: state.coins,
     lifetimeCoins: state.lifetimeCoins,
+    energy: state.energy,
+    maxEnergy: state.maxEnergy,
+    weatherId: state.weatherId,
+    weatherClock: state.weatherClock,
+    waveMutationId: state.waveMutationId,
+    nextEventWave: state.nextEventWave,
+    queuedRelicChoices: state.queuedRelicChoices,
+    queuedScenarioEvents: state.queuedScenarioEvents,
+    eventDebt: state.eventDebt,
+    nextWaveMines: state.nextWaveMines,
+    nextWaveEnemyCut: state.nextWaveEnemyCut,
+    nextWaveRewardCut: state.nextWaveRewardCut,
     nextChoiceAt: state.nextChoiceAt,
     choices: state.choices,
     kills: state.kills,
+    bossKills: state.bossKills,
+    achievements: state.achievements,
+    latestAchievement: state.latestAchievement,
     baseHp: state.baseHp,
     baseMaxHp: state.baseMaxHp,
     unitCap: state.unitCap,
     bought: state.bought,
     techLevel: state.techLevel,
     tech: state.tech,
+    relics: state.relics,
+    seenRelics: state.seenRelics,
+    relicStats: state.relicStats,
     upgrades: state.upgrades,
     elementBoost: state.elementBoost,
     bestWave: state.bestWave,
@@ -1913,7 +3768,7 @@ function createSaveCode() {
 function loadSaveCode(code) {
   const raw = decodeURIComponent(escape(atob(code.trim())));
   const parsed = JSON.parse(raw);
-  if (!parsed || ![3, 4].includes(parsed.version)) throw new Error("bad save");
+  if (!parsed || ![3, 4, 5].includes(parsed.version)) throw new Error("bad save");
   localStorage.setItem(SAVE_KEY, raw);
   state = createDefaultState();
   entityId = 1;
@@ -1950,7 +3805,7 @@ function loadGame() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     const saved = JSON.parse(raw);
-    if (!saved || ![3, 4].includes(saved.version)) return false;
+    if (!saved || ![3, 4, 5].includes(saved.version)) return false;
 
     state.wave = saved.wave || 0;
     state.bridgeCount = saved.bridgeCount || 1;
@@ -1959,6 +3814,18 @@ function loadGame() {
     state.wavesUntilGift = saved.wavesUntilGift || 3;
     state.coins = saved.coins ?? state.coins;
     state.lifetimeCoins = saved.lifetimeCoins || 0;
+    state.energy = saved.energy ?? state.energy;
+    state.maxEnergy = saved.maxEnergy ?? state.maxEnergy;
+    state.weatherId = saved.weatherId || state.weatherId;
+    state.weatherClock = saved.weatherClock ?? state.weatherClock;
+    state.waveMutationId = saved.waveMutationId || state.waveMutationId;
+    state.nextEventWave = saved.nextEventWave || state.nextEventWave;
+    state.queuedRelicChoices = saved.queuedRelicChoices || 0;
+    state.queuedScenarioEvents = saved.queuedScenarioEvents || 0;
+    state.eventDebt = saved.eventDebt || 0;
+    state.nextWaveMines = saved.nextWaveMines || 0;
+    state.nextWaveEnemyCut = saved.nextWaveEnemyCut || 0;
+    state.nextWaveRewardCut = saved.nextWaveRewardCut || 0;
     state.choices = saved.choices || 0;
     state.nextChoiceAt = saved.nextChoiceAt || state.lifetimeCoins + nextAbilityRequirement();
     const nextGap = Math.max(1500, nextAbilityRequirement());
@@ -1966,6 +3833,9 @@ function loadGame() {
       state.nextChoiceAt = state.lifetimeCoins + nextAbilityRequirement();
     }
     state.kills = saved.kills || 0;
+    state.bossKills = saved.bossKills || 0;
+    state.achievements = { ...(saved.achievements || {}) };
+    state.latestAchievement = saved.latestAchievement || "";
     state.baseHp = saved.baseHp || state.baseHp;
     state.baseMaxHp = saved.baseMaxHp || state.baseMaxHp;
     state.unitCap = saved.unitCap || state.unitCap;
@@ -1975,6 +3845,18 @@ function loadGame() {
       Number.isFinite(saved.techLevel)
         ? Math.max(0, Math.floor(saved.techLevel))
         : Math.max(0, ...Object.values(saved.tech || {}).map((level) => Number(level) || 0));
+    state.relics = Array.isArray(saved.relics) ? saved.relics.filter((id) => RELIC_POOL.some((relic) => relic.id === id)) : [];
+    state.seenRelics = { ...(saved.seenRelics || {}) };
+    state.relicStats = { ...(saved.relicStats || {}) };
+    if (!Object.keys(state.relicStats).length && state.relics.length) {
+      state.relics.forEach((id) => {
+        const relic = RELIC_POOL.find((item) => item.id === id);
+        Object.entries(relic?.stats || {}).forEach(([key, value]) => {
+          state.relicStats[key] = (state.relicStats[key] || 0) + value;
+        });
+        state.seenRelics[id] = true;
+      });
+    }
     state.upgrades = { ...state.upgrades, ...(saved.upgrades || {}) };
     state.elementBoost = { ...state.elementBoost, ...(saved.elementBoost || {}) };
     state.bestWave = Math.max(state.bestWave, saved.bestWave || 0);
@@ -2070,6 +3952,9 @@ function init() {
   ui.upgradeSelectedBtn.addEventListener("click", upgradeSelectedUnit);
   ui.techBtn.addEventListener("click", upgradeTech);
   ui.claimBtn.addEventListener("click", claimTerritory);
+  Object.entries(ui.tacticButtons).forEach(([id, button]) => {
+    button?.addEventListener("click", () => useTactic(id));
+  });
   ui.saveBtn.addEventListener("click", () => {
     saveGame();
     showToast("已保存");

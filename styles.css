@@ -169,17 +169,50 @@ button {
   display: flex;
   flex-direction: column;
   justify-content: end;
+  overflow-y: auto;
   padding: calc(64px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom));
   border-left: 4px solid var(--ink);
   background:
     linear-gradient(180deg, rgba(28, 28, 24, 0.95), rgba(25, 22, 19, 0.98)),
     #211d19;
+  scrollbar-width: thin;
 }
 
 .shop-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
+  margin-top: 8px;
+}
+
+.version-banner {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f2c45a, #d8914e);
+  color: #21150f;
+  box-shadow: 0 4px 0 var(--ink);
+}
+
+.version-banner strong {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 1000;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-banner span {
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shop-card {
@@ -319,6 +352,107 @@ button {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tactic-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tactic-grid-featured {
+  margin-top: 0;
+}
+
+.tactic-btn {
+  min-width: 0;
+  height: 52px;
+  display: grid;
+  grid-template-rows: 1fr 15px;
+  place-items: center;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: #b0c888;
+  color: #21150f;
+  box-shadow: 0 4px 0 var(--ink);
+  cursor: pointer;
+  font-weight: 1000;
+}
+
+.tactic-btn:nth-child(1) {
+  background: #e5ca68;
+}
+
+.tactic-btn:nth-child(2) {
+  background: #93c9df;
+}
+
+.tactic-btn:nth-child(3) {
+  background: #8cc382;
+}
+
+.tactic-btn:nth-child(4) {
+  background: #db815d;
+}
+
+.tactic-btn strong,
+.tactic-btn small {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tactic-btn strong {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.tactic-btn small {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.tactic-btn:disabled {
+  filter: grayscale(0.78) brightness(0.62);
+  cursor: not-allowed;
+}
+
+.tactic-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--ink), 0 4px 10px var(--shadow);
+}
+
+.intel-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 7px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: rgba(243, 217, 151, 0.92);
+  color: #21150f;
+  box-shadow: 0 4px 0 var(--ink);
+}
+
+.intel-panel span {
+  min-width: 0;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(33, 21, 15, 0.22);
+  padding-bottom: 3px;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.intel-panel span:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 
 .action-grid {
@@ -492,6 +626,18 @@ button {
 
 .choice-card:nth-child(3) {
   background: #9fd0d2;
+}
+
+.choice-card.relic-card {
+  background:
+    linear-gradient(180deg, rgba(255, 246, 191, 0.55), rgba(190, 137, 72, 0.28)),
+    #d8bb7c;
+}
+
+.choice-card.event-card {
+  background:
+    linear-gradient(180deg, rgba(169, 211, 208, 0.5), rgba(116, 139, 84, 0.24)),
+    #adc783;
 }
 
 .choice-icon {
@@ -676,6 +822,18 @@ button {
 
   .shop-card small {
     grid-column: auto;
+  }
+
+  .tactic-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .tactic-btn {
+    height: 46px;
+  }
+
+  .intel-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .topbar {

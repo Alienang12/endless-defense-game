@@ -3,30 +3,39 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>无尽守线</title>
+    <title>三国阵战 S1</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
-    <main class="game-shell" aria-label="无尽守线">
+    <main class="game-shell" aria-label="三国阵战策略原型">
       <section class="stage" aria-label="战场">
-        <canvas id="gameCanvas"></canvas>
+        <canvas id="battleCanvas"></canvas>
 
-        <div class="topbar">
+        <div class="topbar" aria-label="军政资源">
           <div class="metric">
-            <span>金币</span>
-            <strong id="coinText">0</strong>
+            <span class="resource-icon city-icon" aria-hidden="true"></span>
+            <span>城池</span>
+            <strong id="cityText">新野</strong>
           </div>
           <div class="metric">
-            <span>领地</span>
-            <strong id="territoryText">1</strong>
+            <span class="resource-icon people-icon" aria-hidden="true"></span>
+            <span>人口</span>
+            <strong id="populationText">18</strong>
           </div>
           <div class="metric">
-            <span>波次</span>
-            <strong id="waveText">1</strong>
+            <span class="resource-icon grain-icon" aria-hidden="true"></span>
+            <span>粮草</span>
+            <strong id="grainText">120</strong>
           </div>
-          <div class="metric metric-wide">
-            <span>城门</span>
-            <strong id="baseText">500/500</strong>
+          <div class="metric">
+            <span class="resource-icon arms-icon" aria-hidden="true"></span>
+            <span>军械</span>
+            <strong id="armsText">80</strong>
+          </div>
+          <div class="metric">
+            <span class="resource-icon morale-icon" aria-hidden="true"></span>
+            <span>士气</span>
+            <strong id="moraleText">70</strong>
           </div>
           <button class="icon-btn" id="pauseBtn" type="button" aria-label="暂停">
             <span id="pauseIcon">II</span>
@@ -34,157 +43,79 @@
           <button class="icon-btn" id="speedBtn" type="button" aria-label="切换速度">1x</button>
         </div>
 
-        <div class="wave-ribbon" id="waveRibbon">第 1 波</div>
+        <div class="battle-ribbon" id="battleRibbon">布阵阶段</div>
         <div class="toast" id="toast" aria-live="polite"></div>
 
-        <div class="game-over" id="gameOver" hidden>
-          <div class="end-panel">
-            <p class="end-kicker">城门失守</p>
-            <h1 id="endTitle">守到第 1 波</h1>
-            <p id="endStats">击败 0 个敌人</p>
-            <button id="restartBtn" type="button">重新开始</button>
+        <div class="result-modal" id="resultModal" hidden>
+          <div class="result-panel">
+            <p id="resultKicker">战斗结束</p>
+            <h1 id="resultTitle">胜负未分</h1>
+            <p id="resultText">调整阵容后再战。</p>
+            <div class="result-actions">
+              <button id="nextStageBtn" type="button">下一关</button>
+              <button id="retryBtn" type="button">再战一场</button>
+            </div>
           </div>
         </div>
       </section>
 
       <section class="command-panel" aria-label="指挥区">
         <div class="version-banner">
-          <strong id="versionText">V12 五行策略版</strong>
-          <span>五英雄 · 战场背包 · 关卡地图 · 旧存档重置</span>
+          <strong>S1 三国阵战原型</strong>
+          <span>左右对阵 · 武将带兵 · 阵法地形克制</span>
+        </div>
+
+        <div class="battle-card">
+          <div>
+            <strong id="stageTitle">博望坡伏击</strong>
+            <span id="stageMeta">森林 · 蜀 vs 魏</span>
+          </div>
+          <div class="power-row">
+            <span id="allyPowerText">蜀军 0</span>
+            <span id="enemyPowerText">魏军 0</span>
+          </div>
         </div>
 
         <div class="side-tabs" aria-label="指挥页签">
-          <button class="side-tab active" type="button" data-tab="battle">战场</button>
+          <button class="side-tab active" type="button" data-tab="roster">阵容</button>
           <button class="side-tab" type="button" data-tab="formation">阵法</button>
-          <button class="side-tab" type="button" data-tab="market">商店</button>
-          <button class="side-tab" type="button" data-tab="story">剧情</button>
+          <button class="side-tab" type="button" data-tab="campaign">关卡</button>
+          <button class="side-tab" type="button" data-tab="report">战报</button>
         </div>
 
-        <div class="side-panel active" data-panel="battle">
-          <div class="power-card">
-            <strong id="powerText">我方战力 0</strong>
-            <span id="enemyPowerText">敌军预计 0</span>
+        <div class="side-panel active" data-panel="roster">
+          <div class="section-title">
+            <strong>蜀军武将</strong>
+            <span id="selectedText">已选 5/5</span>
           </div>
-
-          <div class="tactic-grid tactic-grid-featured" aria-label="战术技能">
-            <button class="tactic-btn" id="stormBtn" type="button">
-              <strong>雷令</strong>
-              <small id="stormStatus">30 能量</small>
-            </button>
-            <button class="tactic-btn" id="frostBtn" type="button">
-              <strong>霜阵</strong>
-              <small id="frostStatus">24 能量</small>
-            </button>
-            <button class="tactic-btn" id="rallyBtn" type="button">
-              <strong>战鼓</strong>
-              <small id="rallyStatus">22 能量</small>
-            </button>
-            <button class="tactic-btn" id="mineBtn" type="button">
-              <strong>火雷</strong>
-              <small id="mineStatus">26 能量</small>
-            </button>
-          </div>
-
-          <div class="intel-panel">
-            <span id="energyText">能量 0/100</span>
-            <span id="weatherText">天气 平稳</span>
-            <span id="synergyText">羁绊 未成阵</span>
-            <span id="relicText">遗物 0</span>
-            <span id="objectiveText">目标 守住下一波</span>
-            <span id="achievementText">战功 0</span>
-          </div>
-
-          <div class="section-title compact-title">
-            <strong>五行英雄</strong>
-            <span>点击英雄查看并训练，拖动战场小人调整站位</span>
-          </div>
-
-          <div class="shop-grid hero-grid">
-            <button class="shop-card hero-card" type="button" data-hero="rifle">
-              <span class="unit-mark rifle-mark"></span>
-              <strong>金弩手</strong>
-              <small id="cost-rifle">60</small>
-            </button>
-            <button class="shop-card hero-card" type="button" data-hero="guard">
-              <span class="unit-mark guard-mark"></span>
-              <strong>土守将</strong>
-              <small id="cost-guard">90</small>
-            </button>
-            <button class="shop-card hero-card" type="button" data-hero="medic">
-              <span class="unit-mark medic-mark"></span>
-              <strong>木灵使</strong>
-              <small id="cost-medic">120</small>
-            </button>
-            <button class="shop-card hero-card" type="button" data-hero="mage">
-              <span class="unit-mark mage-mark"></span>
-              <strong>水镜师</strong>
-              <small id="cost-mage">150</small>
-            </button>
-            <button class="shop-card hero-card" type="button" data-hero="turret">
-              <span class="unit-mark turret-mark"></span>
-              <strong>火炮将</strong>
-              <small id="cost-turret">180</small>
-            </button>
-          </div>
-
-          <div class="section-title compact-title">
-            <strong>英雄装备槽</strong>
-            <span id="loadoutText">每名英雄最多 2 件装备</span>
-          </div>
-          <div class="loadout-grid battle-loadout-grid" id="loadoutGrid"></div>
-
-          <div class="section-title compact-title">
-            <strong>背包</strong>
-            <span id="inventoryText">选择装备后点空槽装备</span>
-          </div>
-          <div class="inventory-grid battle-inventory-grid" id="inventoryGrid"></div>
-
-          <div class="status-strip legacy-hidden" aria-hidden="true">
-            <span id="capText">兵力 0/8</span>
-            <span id="techStatusText">科技 0/1</span>
-            <span id="selectedText">未选中</span>
-            <span id="giftText">补给 5波</span>
-            <span id="bestText">最佳 0</span>
-          </div>
-
-          <div class="action-grid legacy-hidden" aria-hidden="true">
-            <button class="action-btn" id="upgradeSelectedBtn" type="button">升级选中</button>
-            <button class="action-btn" id="techBtn" type="button">科技</button>
-          </div>
+          <div class="roster-grid" id="rosterGrid"></div>
+          <button class="primary-action" id="startBtn" type="button">开战</button>
         </div>
 
         <div class="side-panel" data-panel="formation">
           <div class="section-title">
-            <strong>阵法台</strong>
-            <span id="formationText">当前：散阵</span>
+            <strong>阵法盘</strong>
+            <span id="formationText">当前：锋矢阵</span>
           </div>
           <div class="formation-grid" id="formationGrid"></div>
-          <div class="manual-panel">
-            <strong>布阵提示</strong>
-            <span id="formationHint">阵法按你场上五行人数自动判断是否可用，选择后改变战斗重点。</span>
-          </div>
+          <div class="terrain-card" id="terrainCard"></div>
         </div>
 
-        <div class="side-panel" data-panel="market">
+        <div class="side-panel" data-panel="campaign">
           <div class="section-title">
-            <strong>军需商店</strong>
-            <span id="marketRefreshText">每 3 波刷新</span>
+            <strong>蜀魏战役</strong>
+            <span id="campaignText">第 1/5 关</span>
           </div>
-          <div class="market-grid" id="marketGrid"></div>
-          <button class="action-btn wide-action" id="refreshMarketBtn" type="button">刷新商店</button>
+          <div class="stage-grid" id="stageGrid"></div>
         </div>
 
-        <div class="side-panel" data-panel="story">
+        <div class="side-panel" data-panel="report">
           <div class="section-title">
-            <strong>主线关卡</strong>
-            <span id="chapterText">旧木桥</span>
+            <strong>克制战报</strong>
+            <span>最近 8 条关键影响</span>
           </div>
-          <div class="chapter-grid" id="chapterGrid"></div>
-          <button class="action-btn wide-action story-claim-btn" id="claimBtn" type="button">推进领地</button>
-          <div class="manual-panel">
-            <strong id="storyTitle">边境守线</strong>
-            <span id="storyText">敌军正在试探旧桥防线。选择不同关卡会改变主线地图、敌军元素和首领机制。</span>
-          </div>
+          <div class="counter-board" id="counterBoard"></div>
+          <div class="log-list" id="logList"></div>
         </div>
 
         <div class="save-grid">
@@ -194,17 +125,9 @@
         </div>
       </section>
 
-      <div class="choice-modal" id="choiceModal" hidden>
-        <div class="choice-panel">
-          <p class="choice-kicker" id="choiceTitle">请选择能力加成</p>
-          <div class="choice-grid" id="choiceGrid"></div>
-          <p class="choice-note" id="choiceNote">能力加成按 750、1000、1500 金币逐步递增</p>
-        </div>
-      </div>
-
       <div class="save-modal" id="saveModal" hidden>
         <div class="save-panel">
-          <p class="choice-kicker" id="saveTitle">存档</p>
+          <p id="saveTitle">存档</p>
           <textarea id="saveText" spellcheck="false"></textarea>
           <div class="save-modal-actions">
             <button id="copySaveBtn" type="button">复制</button>

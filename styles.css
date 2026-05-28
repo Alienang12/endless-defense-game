@@ -215,6 +215,140 @@ button {
   white-space: nowrap;
 }
 
+.side-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.side-tab {
+  min-width: 0;
+  height: 32px;
+  overflow: hidden;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: #d8bb7c;
+  color: #21150f;
+  box-shadow: 0 3px 0 var(--ink);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 1000;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-tab.active {
+  background: #9ed0c0;
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+
+.side-panel {
+  display: none;
+}
+
+.side-panel.active {
+  display: block;
+}
+
+.power-card,
+.section-title,
+.manual-panel {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: rgba(243, 217, 151, 0.92);
+  color: #21150f;
+  box-shadow: 0 4px 0 var(--ink);
+}
+
+.power-card strong,
+.section-title strong,
+.manual-panel strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 1000;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.power-card span,
+.section-title span,
+.manual-panel span {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+}
+
+.formation-grid,
+.market-grid,
+.chapter-grid {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 9px;
+}
+
+.formation-card,
+.market-card,
+.chapter-card {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: #d8bb7c;
+  color: #21150f;
+  box-shadow: 0 4px 0 var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.formation-card.active,
+.chapter-card.active {
+  background: #f0ba63;
+}
+
+.formation-card:disabled,
+.market-card:disabled,
+.chapter-card:disabled {
+  filter: grayscale(0.78) brightness(0.62);
+  cursor: not-allowed;
+}
+
+.formation-card strong,
+.market-card strong,
+.chapter-card strong {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 1000;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.formation-card span,
+.market-card span,
+.chapter-card span,
+.formation-card small,
+.market-card small,
+.chapter-card small {
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.18;
+}
+
+.wide-action {
+  width: 100%;
+}
+
 .shop-card {
   min-width: 0;
   height: 62px;

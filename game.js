@@ -24,6 +24,20 @@ const ui = {
   gift: document.getElementById("giftText"),
   best: document.getElementById("bestText"),
   version: document.getElementById("versionText"),
+  power: document.getElementById("powerText"),
+  enemyPower: document.getElementById("enemyPowerText"),
+  formation: document.getElementById("formationText"),
+  formationGrid: document.getElementById("formationGrid"),
+  formationHint: document.getElementById("formationHint"),
+  marketGrid: document.getElementById("marketGrid"),
+  refreshMarketBtn: document.getElementById("refreshMarketBtn"),
+  marketRefresh: document.getElementById("marketRefreshText"),
+  chapterGrid: document.getElementById("chapterGrid"),
+  chapter: document.getElementById("chapterText"),
+  storyTitle: document.getElementById("storyTitle"),
+  storyText: document.getElementById("storyText"),
+  sideTabs: [...document.querySelectorAll("[data-tab]")],
+  sidePanels: [...document.querySelectorAll("[data-panel]")],
   energy: document.getElementById("energyText"),
   weather: document.getElementById("weatherText"),
   synergy: document.getElementById("synergyText"),
@@ -347,6 +361,260 @@ const TACTICS = {
     color: "#e86847",
   },
 };
+
+const FORMATIONS = [
+  {
+    id: "loose",
+    name: "散阵",
+    recipe: {},
+    desc: "无门槛，保持均衡。",
+    bonus: { damage: 0.03, range: 0.03 },
+    counter: "无",
+  },
+  {
+    id: "five_circuit",
+    name: "五行轮",
+    recipe: { metal: 1, wood: 1, water: 1, fire: 1, earth: 1 },
+    desc: "五行齐备，克制伤害和金币收益提高。",
+    bonus: { damage: 0.12, elementPower: 0.18, gold: 0.12 },
+    counter: "混合首领",
+  },
+  {
+    id: "fire_arrow",
+    name: "赤金破军",
+    recipe: { fire: 2, metal: 2 },
+    desc: "火与金集中输出，适合打高甲高血目标。",
+    bonus: { damage: 0.2, pierce: 0.16, bossDamage: 0.12 },
+    counter: "金甲、土巨像、首领",
+  },
+  {
+    id: "water_wall",
+    name: "水土锁桥",
+    recipe: { water: 2, earth: 2 },
+    desc: "拖慢敌人并提高城门防护。",
+    bonus: { slowPower: 0.32, baseReduce: 0.18, guardBlock: 0.18 },
+    counter: "快攻、迅捷精英",
+  },
+  {
+    id: "green_camp",
+    name: "青木营",
+    recipe: { wood: 2, earth: 1, water: 1 },
+    desc: "治疗和续航更强，适合消耗战。",
+    bonus: { heal: 0.42, hp: 0.14, regen: 1.6 },
+    counter: "毒、爆裂、长线首领",
+  },
+  {
+    id: "ember_net",
+    name: "烈焰网",
+    recipe: { fire: 3, wood: 1 },
+    desc: "范围和灼烧更强，但防御偏弱。",
+    bonus: { fireDamage: 0.28, splash: 0.12, mineRadius: 0.14 },
+    counter: "群行、分裂怪",
+  },
+  {
+    id: "cold_star",
+    name: "寒星阵",
+    recipe: { water: 2, metal: 2, wood: 1 },
+    desc: "远程控场，优先处理精英。",
+    bonus: { range: 0.16, eliteFocus: 1, waterRoot: 0.08 },
+    counter: "精英潮",
+  },
+  {
+    id: "earth_crown",
+    name: "厚土王冠",
+    recipe: { earth: 3, metal: 1 },
+    desc: "防守最稳，适合扛高战力精英波。",
+    bonus: { baseReduce: 0.24, hp: 0.18, waveShield: 120 },
+    counter: "高攻首领",
+  },
+];
+
+const MARKET_ITEMS = [
+  {
+    id: "relic_map",
+    name: "遗物地图",
+    type: "永久",
+    desc: "立刻获得一次遗物选择",
+    baseCost: 1250,
+    apply: () => {
+      state.queuedRelicChoices += 1;
+    },
+  },
+  {
+    id: "training_manual",
+    name: "兵书残页",
+    type: "永久",
+    desc: "最低等级的 2 个单位升 1 级",
+    baseCost: 780,
+    apply: () => {
+      [...state.units]
+        .sort((a, b) => a.level - b.level)
+        .slice(0, 2)
+        .forEach((unit) => {
+          unit.level += 1;
+          unit.maxHp *= 1.13;
+          unit.hp = unit.maxHp;
+          burst(unit.x, unit.y, ELEMENTS[UNIT_TYPES[unit.type].element].color, 10);
+        });
+    },
+  },
+  {
+    id: "smoke_bomb",
+    name: "烟幕弹",
+    type: "一次性",
+    desc: "全场敌人缓速 5 秒",
+    baseCost: 420,
+    apply: () => {
+      state.enemies.forEach((enemy) => {
+        enemy.slowTimer = Math.max(enemy.slowTimer, 5);
+      });
+    },
+  },
+  {
+    id: "forge_ticket",
+    name: "锻造券",
+    type: "永久",
+    desc: "当前选中单位升 2 级",
+    baseCost: 980,
+    apply: () => {
+      const unit = selectedUnit() || state.units[0];
+      if (!unit) return;
+      for (let i = 0; i < 2; i += 1) {
+        unit.level += 1;
+        unit.maxHp *= 1.15;
+      }
+      unit.hp = unit.maxHp;
+      state.selectedId = unit.id;
+    },
+  },
+  {
+    id: "gate_core",
+    name: "城门芯",
+    type: "永久",
+    desc: "城门上限 +450，并立即修复",
+    baseCost: 1100,
+    apply: () => {
+      state.baseMaxHp += 450;
+      state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 700);
+    },
+  },
+  {
+    id: "summon_contract",
+    name: "精兵契",
+    type: "永久",
+    desc: "获得 1 个随机 5 级精兵",
+    baseCost: 1350,
+    apply: () => {
+      const type = Object.keys(UNIT_TYPES)[Math.floor(Math.random() * Object.keys(UNIT_TYPES).length)];
+      const unit = spawnUnit(type, WORLD.deployLeft + rand(60, 180), pathY(0, 0.6) + rand(-55, 55), true);
+      if (!unit) return;
+      while (unit.level < 5) {
+        unit.level += 1;
+        unit.maxHp *= 1.15;
+      }
+      unit.hp = unit.maxHp;
+    },
+  },
+  {
+    id: "five_dust",
+    name: "五行粉",
+    type: "永久",
+    desc: "当前阵法加成提高 10%",
+    baseCost: 1600,
+    apply: () => {
+      state.formationMastery += 0.1;
+    },
+  },
+  {
+    id: "trap_crate",
+    name: "火雷箱",
+    type: "一次性",
+    desc: "桥上布置 7 个火雷",
+    baseCost: 540,
+    apply: () => {
+      placeMines(7);
+    },
+  },
+  {
+    id: "scout_horn",
+    name: "斥候号",
+    type: "一次性",
+    desc: "下一波敌军战力 -18%",
+    baseCost: 680,
+    apply: () => {
+      state.nextWavePowerMod *= 0.82;
+    },
+  },
+  {
+    id: "boss_bait",
+    name: "诱王香",
+    type: "冒险",
+    desc: "下一波加入首领，但首领奖励翻倍",
+    baseCost: 900,
+    apply: () => {
+      state.forceBoss += 1;
+      state.nextBossReward *= 2;
+    },
+  },
+];
+
+const STORY_CHAPTERS = [
+  {
+    id: "border_bridge",
+    name: "旧木桥",
+    title: "边境守线",
+    desc: "敌军只是试探，但会很快根据你的防线调整强度。",
+    requiredTerritory: 1,
+    enemyElements: ["wood", "water"],
+    boss: "五行先锋",
+    biome: 0,
+    reward: { coins: 0 },
+  },
+  {
+    id: "red_ford",
+    name: "赤土渡",
+    title: "赤土渡口",
+    desc: "火爆怪更多，适合尝试水土锁桥或寒星阵。",
+    requiredTerritory: 2,
+    enemyElements: ["fire", "earth"],
+    boss: "赤土督军",
+    biome: 3,
+    reward: { coins: 300 },
+  },
+  {
+    id: "mist_camp",
+    name: "雾水寨",
+    title: "雾水寨",
+    desc: "水影和薄雾会扰乱射程，需要阵法和斥候道具配合。",
+    requiredTerritory: 3,
+    enemyElements: ["water", "metal"],
+    boss: "雾水镜主",
+    biome: 2,
+    reward: { energy: 40 },
+  },
+  {
+    id: "golden_pass",
+    name: "金鳞关",
+    title: "金鳞关",
+    desc: "高甲敌军登场，赤金破军和穿甲道具更有价值。",
+    requiredTerritory: 5,
+    enemyElements: ["metal", "earth"],
+    boss: "金鳞甲首",
+    biome: 1,
+    reward: { relic: 1 },
+  },
+  {
+    id: "five_altar",
+    name: "五行坛",
+    title: "五行古坛",
+    desc: "混合属性首领反复切换弱点，五行轮开始真正发挥价值。",
+    requiredTerritory: 8,
+    enemyElements: ["metal", "wood", "water", "fire", "earth"],
+    boss: "五行坛主",
+    biome: 0,
+    reward: { relic: 1, coins: 1000 },
+  },
+];
 
 const RELIC_POOL = [
   {
@@ -1238,6 +1506,7 @@ let lastFrame = 0;
 let entityId = 1;
 let resizeObserver;
 let saveClock = 0;
+let sideRenderSignature = "";
 
 function createDefaultState() {
   return {
@@ -1251,6 +1520,16 @@ function createDefaultState() {
     waveClock: 0,
     nextWaveDelay: 0,
     spawnQueue: [],
+    nextWavePower: 0,
+    currentWavePower: 0,
+    activeTab: "battle",
+    activeFormation: "loose",
+    formationMastery: 0,
+    marketStock: [],
+    marketWave: 0,
+    marketRefreshes: 0,
+    activeChapter: "border_bridge",
+    completedChapters: {},
     nextEventWave: 4,
     queuedRelicChoices: 0,
     queuedScenarioEvents: 0,
@@ -1270,6 +1549,9 @@ function createDefaultState() {
     nextWaveMines: 0,
     nextWaveEnemyCut: 0,
     nextWaveRewardCut: 0,
+    nextWavePowerMod: 1,
+    forceBoss: 0,
+    nextBossReward: 1,
     rewardCutThisWave: false,
     nextChoiceAt: 750,
     choices: 0,
@@ -1279,7 +1561,7 @@ function createDefaultState() {
     latestAchievement: "",
     baseHp: 1300,
     baseMaxHp: 1300,
-    unitCap: 11,
+    unitCap: 8,
     selectedId: null,
     draggingId: null,
     dragOffsetX: 0,
@@ -1436,12 +1718,15 @@ function regionName() {
   return REGION_NAMES[(state.territory - 1) % REGION_NAMES.length];
 }
 
-function weatherMultiplier(key, fallback = 1) {
-  const weather = currentWeather();
-  return weather[key] ?? fallback;
+function activeChapter() {
+  return STORY_CHAPTERS.find((chapter) => chapter.id === state.activeChapter) || STORY_CHAPTERS[0];
 }
 
-function synergyInfo() {
+function activeFormation() {
+  return FORMATIONS.find((formation) => formation.id === state.activeFormation) || FORMATIONS[0];
+}
+
+function elementCounts() {
   const counts = ELEMENT_ORDER.reduce((result, element) => {
     result[element] = 0;
     return result;
@@ -1450,6 +1735,65 @@ function synergyInfo() {
     const element = UNIT_TYPES[unit.type]?.element;
     if (element) counts[element] += 1;
   });
+  return counts;
+}
+
+function formationAvailable(formation) {
+  const counts = elementCounts();
+  return Object.entries(formation.recipe || {}).every(([element, amount]) => (counts[element] || 0) >= amount);
+}
+
+function formationBonus() {
+  const formation = activeFormation();
+  if (!formationAvailable(formation)) return {};
+  const mastery = 1 + (state.formationMastery || 0);
+  return Object.entries(formation.bonus || {}).reduce((result, [key, value]) => {
+    result[key] = value * mastery;
+    return result;
+  }, {});
+}
+
+function unitPower(unit) {
+  const meta = UNIT_TYPES[unit.type];
+  if (!meta) return 0;
+  const levelScale = 1 + (unit.level - 1) * 0.34;
+  const roleWeight = unit.type === "guard" ? 1.08 : unit.type === "medic" ? 0.95 : unit.type === "turret" ? 1.16 : 1;
+  return Math.round((meta.hp * 0.12 + meta.damage * meta.fireRate * 12 + meta.range * 0.12) * levelScale * roleWeight);
+}
+
+function playerPower() {
+  const unitTotal = state.units.reduce((sum, unit) => sum + unitPower(unit), 0);
+  const tech = 1 + state.techLevel * 0.045;
+  const relic = 1 + state.relics.length * 0.025;
+  const formation = formationAvailable(activeFormation()) ? 1.08 + (state.formationMastery || 0) * 0.25 : 1;
+  const infrastructure = 1 + Math.max(0, state.unitCap - 5) * 0.018 + state.territory * 0.012;
+  return Math.max(120, Math.round(unitTotal * tech * relic * formation * infrastructure));
+}
+
+function wavePowerTarget() {
+  const base = playerPower();
+  const isBossWave = (state.wave + 1) % 5 === 0 || (state.wave + 1) % 3 === 0 || state.forceBoss > 0;
+  const chapter = activeChapter();
+  const chapterPressure = 1 + STORY_CHAPTERS.findIndex((item) => item.id === chapter.id) * 0.08;
+  const wavePressure = 1 + Math.min(0.9, state.wave * 0.012);
+  const target = base * (isBossWave ? 1.18 : 0.78 + Math.min(0.18, state.wave * 0.004)) * chapterPressure * wavePressure;
+  return Math.round(target * (state.nextWavePowerMod || 1));
+}
+
+function enemyUnitPower(type, elite = false) {
+  const meta = ENEMY_TYPES[type];
+  if (!meta) return 40;
+  const raw = meta.hp * 0.16 + meta.damage * 13 + meta.speed * 1.4 + (meta.armor || 0) * 18 + meta.reward * 0.8;
+  return Math.round(raw * (elite ? 2.7 : 1));
+}
+
+function weatherMultiplier(key, fallback = 1) {
+  const weather = currentWeather();
+  return weather[key] ?? fallback;
+}
+
+function synergyInfo() {
+  const counts = elementCounts();
 
   const names = [];
   const stats = {
@@ -1500,24 +1844,34 @@ function synergyInfo() {
 function combatStats() {
   const weather = currentWeather();
   const synergy = synergyInfo().stats;
+  const form = formationBonus();
   const fogRangePenalty = weather.id === "fog" && hasRelic("quiet_bell") ? 1 : weather.range ?? 1;
   const danger =
     relicStat("dangerFireRate") > 0 && state.enemies.some((enemy) => enemy.x < WORLD.baseX + 180)
       ? relicStat("dangerFireRate")
       : 0;
   return {
-    damage: state.upgrades.damage * relicMultiplier("damage") * (weather.unitDamage || 1) * (1 + synergy.damage),
-    fireRate: state.upgrades.fireRate * (1 + synergy.fireRate + danger) * (state.buffs.rally > 0 ? 1.28 : 1),
-    range: state.upgrades.range * fogRangePenalty * relicMultiplier("range") * (1 + synergy.range),
-    heal: state.upgrades.heal * (weather.heal || 1) * relicMultiplier("heal") * (1 + synergy.heal),
-    gold: state.upgrades.gold * relicMultiplier("gold") * (1 + synergy.gold),
-    pierce: relicStat("pierce") + synergy.pierce,
-    slowPower: relicStat("slowPower") + synergy.slowPower + ((weather.waterSlow || 1) - 1),
-    elementPower: state.upgrades.elementPower + relicStat("elementPower") + synergy.elementPower,
+    damage: state.upgrades.damage * relicMultiplier("damage") * (weather.unitDamage || 1) * (1 + synergy.damage + (form.damage || 0)),
+    fireRate: state.upgrades.fireRate * (1 + synergy.fireRate + danger + (form.fireRate || 0)) * (state.buffs.rally > 0 ? 1.28 : 1),
+    range: state.upgrades.range * fogRangePenalty * relicMultiplier("range") * (1 + synergy.range + (form.range || 0)),
+    heal: state.upgrades.heal * (weather.heal || 1) * relicMultiplier("heal") * (1 + synergy.heal + (form.heal || 0)),
+    gold: state.upgrades.gold * relicMultiplier("gold") * (1 + synergy.gold + (form.gold || 0)),
+    pierce: relicStat("pierce") + synergy.pierce + (form.pierce || 0),
+    slowPower: relicStat("slowPower") + synergy.slowPower + (form.slowPower || 0) + ((weather.waterSlow || 1) - 1),
+    elementPower: state.upgrades.elementPower + relicStat("elementPower") + synergy.elementPower + (form.elementPower || 0),
     projectileSpeed: (weather.projectileSpeed || 1) * (weather.id === "wind" ? 1 + relicStat("windProjectile") : 1),
     enemySpeed: (weather.enemySpeed || 1) * (1 - relicStat("bridgeSlow")),
     energy: (weather.energy || 1) * (weather.id === "storm" ? 1 + relicStat("stormEnergy") : 1),
-    baseReduce: synergy.baseReduce + relicStat("baseDamageReduce"),
+    baseReduce: synergy.baseReduce + relicStat("baseDamageReduce") + (form.baseReduce || 0),
+    bossDamage: form.bossDamage || 0,
+    guardBlock: form.guardBlock || 0,
+    splash: form.splash || 0,
+    mineRadius: form.mineRadius || 0,
+    fireDamageBonus: form.fireDamage || 0,
+    waterRoot: form.waterRoot || 0,
+    regen: form.regen || 0,
+    waveShield: form.waveShield || 0,
+    eliteFocus: form.eliteFocus || 0,
   };
 }
 
@@ -1611,8 +1965,25 @@ function spawnUnit(type, x, y, free = false) {
   state.units.push(unit);
   state.selectedId = unit.id;
   burst(unit.x, unit.y, ELEMENTS[meta.element].color, 10);
+  compactArmyIfNeeded();
   saveGame();
   return unit;
+}
+
+function compactArmyIfNeeded() {
+  while (state.units.length > state.unitCap) {
+    const pairType = Object.keys(UNIT_TYPES).find((type) => state.units.filter((unit) => unit.type === type).length >= 2);
+    if (!pairType) break;
+    const same = state.units.filter((unit) => unit.type === pairType).sort((a, b) => a.level - b.level);
+    const absorbed = same[0];
+    const receiver = same[same.length - 1];
+    receiver.level += Math.max(1, Math.floor(absorbed.level * 0.65));
+    receiver.maxHp *= 1 + absorbed.level * 0.06;
+    receiver.hp = receiver.maxHp;
+    state.units = state.units.filter((unit) => unit.id !== absorbed.id);
+    addFloater(receiver.x, receiver.y - 48, "合编", "#ffe28e");
+    burst(receiver.x, receiver.y, ELEMENTS[UNIT_TYPES[receiver.type].element].color, 18);
+  }
 }
 
 function buyUnit(type) {
@@ -1747,53 +2118,8 @@ function scheduleWave() {
     state.nextEventWave += 5;
   }
 
-  const mutation = currentMutation();
-  const waveCut = state.nextWaveEnemyCut > 0 ? 0.75 : 1;
-  if (state.nextWaveEnemyCut > 0) state.nextWaveEnemyCut -= 1;
-  state.rewardCutThisWave = state.nextWaveRewardCut > 0;
-  const count = Math.min(Math.round((5 + Math.floor(state.wave * 1.02) + state.territory) * waveCut * (mutation.count || 1)), 84);
-  const eliteChance =
-    state.wave < 4
-      ? 0.04
-      : Math.min(
-          0.12 +
-            state.wave * 0.014 +
-            state.territory * 0.012 +
-            (state.techLevel || 0) * 0.003 +
-            (currentWeather().eliteChance || 0) +
-            relicStat("eliteChance") +
-            (mutation.eliteChance || 0),
-          0.62,
-        );
-  for (let i = 0; i < count; i += 1) {
-    state.spawnQueue.push({
-      at: i * rand(0.38, 0.68),
-      type: pickEnemyType(state.wave, mutation),
-      pathIndex: Math.floor(Math.random() * activePathCount()),
-      elite: Math.random() < eliteChance,
-    });
-  }
-
-  if (state.wave >= 4) {
-    const heavyCount = Math.min(1 + Math.floor(state.wave / 9), 5);
-    for (let i = 0; i < heavyCount; i += 1) {
-      state.spawnQueue.push({
-        at: rand(1.4, count * 0.45 + 2.2),
-        type: state.wave % 6 === 0 ? "golem" : Math.random() < 0.55 ? "shell" : "cinder",
-        pathIndex: Math.floor(Math.random() * activePathCount()),
-        elite: true,
-      });
-    }
-  }
-
-  if (state.wave >= 3 && state.wave % 3 === 0) {
-    state.spawnQueue.push({
-      at: count * 0.45 + 1.2,
-      type: "boss",
-      pathIndex: Math.floor(Math.random() * activePathCount()),
-      elite: true,
-    });
-  }
+  buildWaveSpawnQueue();
+  state.nextWavePowerMod = 1;
 
   if (state.eventDebt > 0) {
     state.eventDebt -= 1;
@@ -1808,9 +2134,10 @@ function scheduleWave() {
     placeMines(amount, true);
   }
   if (state.nextWaveRewardCut > 0) state.nextWaveRewardCut -= 1;
+  state.nextBossReward = 1;
 
   state.spawnQueue.sort((a, b) => a.at - b.at);
-  ui.waveRibbon.textContent = state.wave >= 3 && state.wave % 3 === 0 ? `第 ${state.wave} 波 首领来袭` : `第 ${state.wave} 波`;
+  ui.waveRibbon.textContent = state.wave >= 5 && state.wave % 5 === 0 ? `第 ${state.wave} 波 首领来袭` : `第 ${state.wave} 波`;
   ui.waveRibbon.classList.remove("show");
   void ui.waveRibbon.offsetWidth;
   ui.waveRibbon.classList.add("show");
@@ -1826,6 +2153,72 @@ function rollWaveMutation() {
     state.weatherClock = Math.max(state.weatherClock, 36);
   }
   if (state.wave > 1) addFloater(WORLD.width * 0.5, WORLD.height * 0.23, mutation.name, "#ffe28e");
+}
+
+function buildWaveSpawnQueue() {
+  const mutation = currentMutation();
+  const chapter = activeChapter();
+  const waveCut = state.nextWaveEnemyCut > 0 ? 0.76 : 1;
+  if (state.nextWaveEnemyCut > 0) state.nextWaveEnemyCut -= 1;
+  state.rewardCutThisWave = state.nextWaveRewardCut > 0;
+
+  let budget = wavePowerTarget() * waveCut * (mutation.count ? Math.sqrt(mutation.count) : 1);
+  state.currentWavePower = Math.round(budget);
+  state.nextWavePower = Math.round(wavePowerTarget());
+  const bossWave = state.wave >= 5 && state.wave % 5 === 0;
+  const smallCap = bossWave ? 7 : 11;
+  let slot = 0;
+
+  if (bossWave || state.forceBoss > 0) {
+    const bossPower = enemyUnitPower("boss", true) * 1.35;
+    state.spawnQueue.push({
+      at: 1.4,
+      type: "boss",
+      pathIndex: Math.floor(Math.random() * activePathCount()),
+      elite: true,
+    });
+    budget -= bossPower;
+    if (state.forceBoss > 0) state.forceBoss -= 1;
+  }
+
+  while (budget > 70 && slot < smallCap) {
+    const elite = budget > playerPower() * 0.28 && Math.random() < (slot % 3 === 0 ? 0.55 : 0.26);
+    const type = pickEnemyTypeByChapter(chapter, mutation, elite);
+    const cost = enemyUnitPower(type, elite);
+    state.spawnQueue.push({
+      at: 0.8 + slot * rand(0.75, 1.25),
+      type,
+      pathIndex: Math.floor(Math.random() * activePathCount()),
+      elite,
+    });
+    budget -= cost;
+    slot += 1;
+  }
+
+  if (!state.spawnQueue.length) {
+    state.spawnQueue.push({
+      at: 0.8,
+      type: pickEnemyTypeByChapter(chapter, mutation, false),
+      pathIndex: 0,
+      elite: false,
+    });
+  }
+}
+
+function pickEnemyTypeByChapter(chapter, mutation, elite) {
+  const elementMap = {
+    wood: "sprout",
+    fire: "cinder",
+    water: "tide",
+    metal: "shell",
+    earth: "golem",
+  };
+  if (elite && Math.random() < 0.35) return Math.random() < 0.5 ? "shell" : "golem";
+  if (chapter?.enemyElements?.length && Math.random() < 0.62) {
+    const element = chapter.enemyElements[Math.floor(Math.random() * chapter.enemyElements.length)];
+    return elementMap[element] || pickEnemyType(state.wave, mutation);
+  }
+  return pickEnemyType(state.wave, mutation);
 }
 
 function pickEnemyType(wave, mutation = currentMutation()) {
@@ -1908,7 +2301,7 @@ function spawnEnemy(type, pathIndex, elite = false) {
         taxAffix *
         (mutation.reward || 1) *
         (elite ? 1 + relicStat("eliteGold") : 1) *
-        (type === "boss" ? 1 + relicStat("bossGold") : 1) *
+        (type === "boss" ? (1 + relicStat("bossGold")) * (state.nextBossReward || 1) : 1) *
         (state.rewardCutThisWave ? 0.7 : 1),
     ),
     element: type === "boss" ? ELEMENT_ORDER[state.wave % ELEMENT_ORDER.length] : meta.element,
@@ -1948,8 +2341,8 @@ function update(dt) {
   saveClock += dt;
   updateWeather(dt);
   updateTactics(dt);
-  if (state.upgrades.regen > 0 || relicStat("baseRegen") > 0) {
-    state.baseHp = Math.min(state.baseMaxHp, state.baseHp + (state.upgrades.regen + relicStat("baseRegen")) * dt);
+  if (state.upgrades.regen > 0 || relicStat("baseRegen") > 0 || combatStats().regen > 0) {
+    state.baseHp = Math.min(state.baseMaxHp, state.baseHp + (state.upgrades.regen + relicStat("baseRegen") + combatStats().regen) * dt);
   }
 
   if (state.wave === 0) scheduleWave();
@@ -2029,7 +2422,7 @@ function updateUnits(dt) {
     const typeRate = unit.type === "turret" ? 1 + relicStat("turretRate") : 1;
     const elementDamage =
       meta.element === "fire"
-        ? (currentWeather().fireDamage || 1) * relicMultiplier("fireDamage")
+        ? (currentWeather().fireDamage || 1) * relicMultiplier("fireDamage") * (1 + stats.fireDamageBonus)
         : meta.element === "water"
           ? relicMultiplier("waterDamage")
           : 1;
@@ -2053,7 +2446,7 @@ function updateUnits(dt) {
       damage,
       speed: (unit.type === "turret" ? 600 : 510) * stats.projectileSpeed,
       color: ELEMENTS[meta.element].color,
-      splash: unit.type === "turret" || Math.random() < state.upgrades.splash,
+      splash: unit.type === "turret" || Math.random() < state.upgrades.splash + stats.splash,
       slow: unit.type === "mage",
       pierce: (unit.type === "rifle" ? 0.55 : 0) + stats.pierce,
     });
@@ -2103,7 +2496,7 @@ function findTarget(unit) {
   return state.enemies
     .filter((enemy) => enemy.hp > 0 && distance(unit, enemy) <= range)
     .sort((a, b) => {
-      if (relicStat("eliteFocus") && a.elite !== b.elite) return a.elite ? -1 : 1;
+      if ((relicStat("eliteFocus") || stats.eliteFocus) && a.elite !== b.elite) return a.elite ? -1 : 1;
       const pathA = WORLD.paths[a.pathIndex] || WORLD.paths[0];
       const pathB = WORLD.paths[b.pathIndex] || WORLD.paths[0];
       const closeA = a.progress / pathA.length;
@@ -2137,7 +2530,7 @@ function updateEnemies(dt) {
     const blocker = state.units
       .filter((unit) => {
         const guardBonus = unit.type === "guard" ? 1 + relicStat("guardBlock") : 1;
-        return unit.hp > 0 && distance(unit, enemy) < (unit.type === "guard" ? 42 * guardBonus : 31);
+        return unit.hp > 0 && distance(unit, enemy) < (unit.type === "guard" ? 42 * guardBonus * (1 + combatStats().guardBlock) : 31);
       })
       .sort((a, b) => b.hp - a.hp)[0];
 
@@ -2227,7 +2620,7 @@ function hitEnemy(enemy, rawDamage, source, options = {}) {
     (attackerElement === "metal" ? relicStat("metalCrit") : 0) +
     (source.unitType === "rifle" || source.type === "rifle" ? 0.03 : 0);
   const crit = Math.random() < critChance;
-  const bossTaken = enemy.type === "boss" ? 1 + relicStat("bossDamageTaken") : 1;
+  const bossTaken = enemy.type === "boss" ? 1 + relicStat("bossDamageTaken") + combatStats().bossDamage : 1;
   const slowTaken = enemy.slowTimer > 0 ? 1 + relicStat("slowDamageTaken") : 1;
   let damage = Math.max(1, rawDamage * multiplier * bossTaken * slowTaken * (crit ? 1.75 : 1) - armor);
   if (enemy.shield > 0) {
@@ -2242,7 +2635,7 @@ function hitEnemy(enemy, rawDamage, source, options = {}) {
     enemy.burn = Math.max(enemy.burn || 0, 3.2);
     addFloater(enemy.x, enemy.y - 46, "灼烧", ELEMENTS.fire.color);
   }
-  if (attackerElement === "water" && Math.random() < relicStat("waterRoot")) {
+  if (attackerElement === "water" && Math.random() < relicStat("waterRoot") + combatStats().waterRoot) {
     enemy.slowTimer = Math.max(enemy.slowTimer, 3.4);
     addFloater(enemy.x, enemy.y - 48, "冰封", ELEMENTS.water.color);
   }
@@ -2585,7 +2978,7 @@ function placeMines(amount, quiet = false) {
       x: pos.x,
       y: pos.y,
       progress,
-      radius: 42 * (1 + relicStat("mineRadius")),
+      radius: 42 * (1 + relicStat("mineRadius") + combatStats().mineRadius),
       damage: 95 + state.wave * 11 + state.techLevel * 14,
       armed: 0.25,
     });
@@ -2638,9 +3031,10 @@ function updateFireFields(dt) {
 
 function startWaveBonuses() {
   state.energy = Math.min(state.maxEnergy, state.energy + relicStat("waveEnergy"));
-  if (relicStat("waveShield") > 0) {
-    state.buffs.waveShield = relicStat("waveShield");
-    state.baseHp = Math.min(state.baseMaxHp, state.baseHp + relicStat("waveShield"));
+  const shield = relicStat("waveShield") + combatStats().waveShield;
+  if (shield > 0) {
+    state.buffs.waveShield = shield;
+    state.baseHp = Math.min(state.baseMaxHp, state.baseHp + shield);
   }
   if (relicStat("periodicLevel") > 0 && state.wave > 0 && state.wave % relicStat("periodicLevel") === 0) {
     const unit = [...state.units].sort((a, b) => a.level - b.level)[0];
@@ -2950,13 +3344,146 @@ function showToast(text) {
   ui.toast.classList.add("show");
 }
 
+function switchTab(tabId) {
+  state.activeTab = tabId;
+  ui.sideTabs.forEach((button) => button.classList.toggle("active", button.dataset.tab === tabId));
+  ui.sidePanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === tabId));
+  updateUi();
+}
+
+function renderFormationGrid() {
+  if (!ui.formationGrid) return;
+  ui.formationGrid.innerHTML = "";
+  FORMATIONS.forEach((formation) => {
+    const available = formationAvailable(formation);
+    const recipe = ELEMENT_ORDER
+      .filter((element) => formation.recipe?.[element])
+      .map((element) => `${ELEMENTS[element].label}${formation.recipe[element]}`)
+      .join(" ");
+    const button = document.createElement("button");
+    button.className = `formation-card${state.activeFormation === formation.id ? " active" : ""}`;
+    button.type = "button";
+    button.disabled = !available;
+    button.innerHTML = `
+      <strong>${formation.name}</strong>
+      <span>${recipe || "无门槛"} · 克制 ${formation.counter}</span>
+      <small>${formation.desc}</small>
+    `;
+    button.addEventListener("click", () => {
+      if (!formationAvailable(formation)) {
+        showToast("阵法人数不足");
+        return;
+      }
+      state.activeFormation = formation.id;
+      showToast(`切换阵法：${formation.name}`);
+      saveGame();
+      updateUi();
+    });
+    ui.formationGrid.appendChild(button);
+  });
+}
+
+function ensureMarketStock(force = false) {
+  if (!force && state.marketStock.length && state.wave - state.marketWave < 3) return;
+  const choices = [...MARKET_ITEMS].sort(() => Math.random() - 0.5).slice(0, 4);
+  state.marketStock = choices.map((item) => item.id);
+  state.marketWave = state.wave;
+}
+
+function marketCost(item) {
+  return Math.round(item.baseCost * (1 + state.marketRefreshes * 0.08 + state.territory * 0.035));
+}
+
+function renderMarketGrid() {
+  if (!ui.marketGrid) return;
+  ensureMarketStock();
+  ui.marketGrid.innerHTML = "";
+  state.marketStock.forEach((id) => {
+    const item = MARKET_ITEMS.find((entry) => entry.id === id);
+    if (!item) return;
+    const cost = marketCost(item);
+    const button = document.createElement("button");
+    button.className = "market-card";
+    button.type = "button";
+    button.disabled = state.coins < cost || state.modalOpen || state.gameOver;
+    button.innerHTML = `
+      <strong>${item.name}</strong>
+      <span>${item.type} · ${cost} 金币</span>
+      <small>${item.desc}</small>
+    `;
+    button.addEventListener("click", () => buyMarketItem(item));
+    ui.marketGrid.appendChild(button);
+  });
+}
+
+function buyMarketItem(item) {
+  const cost = marketCost(item);
+  if (state.coins < cost) {
+    showToast("金币不够");
+    return;
+  }
+  state.coins -= cost;
+  item.apply();
+  state.marketStock = state.marketStock.filter((id) => id !== item.id);
+  showToast(`购买：${item.name}`);
+  saveGame();
+  updateUi();
+}
+
+function refreshMarket() {
+  const cost = Math.round(180 + state.marketRefreshes * 90 + state.territory * 35);
+  if (state.coins < cost) {
+    showToast("金币不够");
+    return;
+  }
+  state.coins -= cost;
+  state.marketRefreshes += 1;
+  ensureMarketStock(true);
+  showToast("商店已刷新");
+  saveGame();
+  updateUi();
+}
+
+function renderChapterGrid() {
+  if (!ui.chapterGrid) return;
+  ui.chapterGrid.innerHTML = "";
+  STORY_CHAPTERS.forEach((chapter) => {
+    const unlocked = state.territory >= chapter.requiredTerritory;
+    const button = document.createElement("button");
+    button.className = `chapter-card${state.activeChapter === chapter.id ? " active" : ""}`;
+    button.type = "button";
+    button.disabled = !unlocked;
+    button.innerHTML = `
+      <strong>${chapter.name}</strong>
+      <span>${unlocked ? chapter.boss : `需要领地 ${chapter.requiredTerritory}`}</span>
+      <small>${chapter.desc}</small>
+    `;
+    button.addEventListener("click", () => selectChapter(chapter));
+    ui.chapterGrid.appendChild(button);
+  });
+}
+
+function selectChapter(chapter) {
+  if (state.territory < chapter.requiredTerritory) {
+    showToast("领地不足");
+    return;
+  }
+  state.activeChapter = chapter.id;
+  rebuildPaths();
+  showToast(`进入主线：${chapter.name}`);
+  saveGame();
+  updateUi();
+}
+
 function updateUi() {
-  if (ui.version) ui.version.textContent = "V9 大扩展版";
+  if (ui.version) ui.version.textContent = "V10 策略扩展版";
   ui.coins.textContent = Math.floor(state.coins);
   ui.territory.textContent = state.territory;
   ui.wave.textContent = state.wave || 1;
   ui.base.textContent = `${Math.ceil(state.baseHp)}/${state.baseMaxHp}`;
   ui.cap.textContent = `兵力 ${currentUnitCount()}/${state.unitCap}`;
+  if (ui.power) ui.power.textContent = `我方战力 ${playerPower()}`;
+  if (ui.enemyPower) ui.enemyPower.textContent = `敌军预计 ${state.nextWavePower || wavePowerTarget()}`;
   const cap = techCap();
   if (ui.techStatus) ui.techStatus.textContent = `科技 ${state.techLevel}/${cap}`;
   ui.best.textContent = `最佳 ${Math.max(state.bestWave, state.wave)}`;
@@ -2974,7 +3501,7 @@ function updateUi() {
   }
   if (ui.objective) {
     ui.objective.textContent =
-      state.wave >= 3 && (state.wave + 1) % 3 === 0
+      state.wave >= 4 && (state.wave + 1) % 5 === 0
         ? `目标 准备首领 · ${currentMutation().name}`
         : `异变 ${currentMutation().name} · ${regionName()}`;
   }
@@ -3014,6 +3541,31 @@ function updateUi() {
     button.disabled = !canUseTactic(id);
     status.textContent = cooldown > 0 ? `${Math.ceil(cooldown)}秒` : `${tactic.cost} 能量`;
   });
+  const formation = activeFormation();
+  if (ui.formation) ui.formation.textContent = `当前：${formation.name}${formationAvailable(formation) ? "" : "（未成）"}`;
+  if (ui.formationHint) ui.formationHint.textContent = formation.desc;
+  if (ui.marketRefresh) ui.marketRefresh.textContent = `每 3 波刷新 · 手动刷新 ${Math.round(180 + state.marketRefreshes * 90 + state.territory * 35)}`;
+  const chapter = activeChapter();
+  if (ui.chapter) ui.chapter.textContent = `${chapter.name} · ${chapter.boss}`;
+  if (ui.storyTitle) ui.storyTitle.textContent = chapter.title;
+  if (ui.storyText) ui.storyText.textContent = chapter.desc;
+  const renderSignature = [
+    state.activeTab,
+    state.activeFormation,
+    state.marketStock.join(","),
+    state.marketWave,
+    state.marketRefreshes,
+    state.activeChapter,
+    state.territory,
+    state.coins,
+    state.units.map((unit) => `${unit.type}${unit.level}`).join("|"),
+  ].join(";");
+  if (renderSignature !== sideRenderSignature) {
+    sideRenderSignature = renderSignature;
+    renderFormationGrid();
+    renderMarketGrid();
+    renderChapterGrid();
+  }
 }
 
 function render() {
@@ -3039,7 +3591,7 @@ function render() {
 }
 
 function drawBackground(w, h) {
-  const biome = BIOMES[(state.territory - 1) % BIOMES.length];
+  const biome = BIOMES[activeChapter().biome ?? ((state.territory - 1) % BIOMES.length)];
   const sky = ctx.createLinearGradient(0, 0, 0, h * 0.34);
   sky.addColorStop(0, "#82a46c");
   sky.addColorStop(1, "#617d52");
@@ -3061,7 +3613,7 @@ function drawBackground(w, h) {
 
   ctx.fillStyle = "rgba(222, 188, 102, 0.16)";
   roundRect(WORLD.deployLeft - 24, WORLD.deployTop - 28, WORLD.deployRight - WORLD.deployLeft + 48, WORLD.deployBottom - WORLD.deployTop + 56, 12, true, false);
-  drawBiomeDecor(w, h, (state.territory - 1) % BIOMES.length);
+  drawBiomeDecor(w, h, activeChapter().biome ?? ((state.territory - 1) % BIOMES.length));
 }
 
 function drawBiomeDecor(w, h, biomeIndex) {
@@ -3126,7 +3678,7 @@ function drawPaths() {
     const active = index < activePathCount();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = active ? BIOMES[(state.territory - 1) % BIOMES.length].path : "rgba(95, 79, 55, 0.42)";
+    ctx.strokeStyle = active ? BIOMES[activeChapter().biome ?? ((state.territory - 1) % BIOMES.length)].path : "rgba(95, 79, 55, 0.42)";
     ctx.lineWidth = 42;
     drawPathStroke(path);
     ctx.strokeStyle = "#1b1713";
@@ -3231,6 +3783,13 @@ function drawUnit(unit) {
   ctx.beginPath();
   ctx.ellipse(0, 17, 22, 7, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = elem.color;
+  ctx.beginPath();
+  ctx.arc(0, 0, 31, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
 
   ctx.fillStyle = meta.color;
   roundRect(-15, -4, 30, 28, 8, true, false);
@@ -3711,8 +4270,18 @@ function handlePointerUp() {
 function saveGame() {
   if (!state || state.gameOver) return;
   const payload = {
-    version: 5,
+    version: 6,
     wave: state.wave,
+    nextWavePower: state.nextWavePower,
+    currentWavePower: state.currentWavePower,
+    activeTab: state.activeTab,
+    activeFormation: state.activeFormation,
+    formationMastery: state.formationMastery,
+    marketStock: state.marketStock,
+    marketWave: state.marketWave,
+    marketRefreshes: state.marketRefreshes,
+    activeChapter: state.activeChapter,
+    completedChapters: state.completedChapters,
     bridgeCount: state.bridgeCount,
     territory: state.territory,
     canClaim: state.canClaim,
@@ -3731,6 +4300,9 @@ function saveGame() {
     nextWaveMines: state.nextWaveMines,
     nextWaveEnemyCut: state.nextWaveEnemyCut,
     nextWaveRewardCut: state.nextWaveRewardCut,
+    nextWavePowerMod: state.nextWavePowerMod,
+    forceBoss: state.forceBoss,
+    nextBossReward: state.nextBossReward,
     nextChoiceAt: state.nextChoiceAt,
     choices: state.choices,
     kills: state.kills,
@@ -3768,7 +4340,7 @@ function createSaveCode() {
 function loadSaveCode(code) {
   const raw = decodeURIComponent(escape(atob(code.trim())));
   const parsed = JSON.parse(raw);
-  if (!parsed || ![3, 4, 5].includes(parsed.version)) throw new Error("bad save");
+  if (!parsed || ![3, 4, 5, 6].includes(parsed.version)) throw new Error("bad save");
   localStorage.setItem(SAVE_KEY, raw);
   state = createDefaultState();
   entityId = 1;
@@ -3805,9 +4377,19 @@ function loadGame() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     const saved = JSON.parse(raw);
-    if (!saved || ![3, 4, 5].includes(saved.version)) return false;
+    if (!saved || ![3, 4, 5, 6].includes(saved.version)) return false;
 
     state.wave = saved.wave || 0;
+    state.nextWavePower = saved.nextWavePower || 0;
+    state.currentWavePower = saved.currentWavePower || 0;
+    state.activeTab = saved.activeTab || state.activeTab;
+    state.activeFormation = saved.activeFormation || state.activeFormation;
+    state.formationMastery = saved.formationMastery || 0;
+    state.marketStock = Array.isArray(saved.marketStock) ? saved.marketStock.filter((id) => MARKET_ITEMS.some((item) => item.id === id)) : [];
+    state.marketWave = saved.marketWave || 0;
+    state.marketRefreshes = saved.marketRefreshes || 0;
+    state.activeChapter = STORY_CHAPTERS.some((chapter) => chapter.id === saved.activeChapter) ? saved.activeChapter : state.activeChapter;
+    state.completedChapters = { ...(saved.completedChapters || {}) };
     state.bridgeCount = saved.bridgeCount || 1;
     state.territory = saved.territory || 1;
     state.canClaim = !!saved.canClaim;
@@ -3826,6 +4408,9 @@ function loadGame() {
     state.nextWaveMines = saved.nextWaveMines || 0;
     state.nextWaveEnemyCut = saved.nextWaveEnemyCut || 0;
     state.nextWaveRewardCut = saved.nextWaveRewardCut || 0;
+    state.nextWavePowerMod = saved.nextWavePowerMod || 1;
+    state.forceBoss = saved.forceBoss || 0;
+    state.nextBossReward = saved.nextBossReward || 1;
     state.choices = saved.choices || 0;
     state.nextChoiceAt = saved.nextChoiceAt || state.lifetimeCoins + nextAbilityRequirement();
     const nextGap = Math.max(1500, nextAbilityRequirement());
@@ -3838,7 +4423,7 @@ function loadGame() {
     state.latestAchievement = saved.latestAchievement || "";
     state.baseHp = saved.baseHp || state.baseHp;
     state.baseMaxHp = saved.baseMaxHp || state.baseMaxHp;
-    state.unitCap = saved.unitCap || state.unitCap;
+    state.unitCap = Math.min(saved.unitCap || state.unitCap, 8 + Math.floor(state.territory / 4) + relicStat("unitCap"));
     state.bought = { ...state.bought, ...(saved.bought || {}) };
     state.tech = { ...state.tech, ...(saved.tech || {}) };
     state.techLevel =
@@ -3893,6 +4478,7 @@ function loadGame() {
       supply: state.techLevel,
       alchemy: state.techLevel,
     };
+    compactArmyIfNeeded();
     state.selectedId = state.units[0]?.id || null;
     return true;
   } catch {
@@ -3939,6 +4525,10 @@ function init() {
   ui.shopButtons.forEach((button) => {
     button.addEventListener("click", () => buyUnit(button.dataset.buy));
   });
+  ui.sideTabs.forEach((button) => {
+    button.addEventListener("click", () => switchTab(button.dataset.tab));
+  });
+  ui.refreshMarketBtn?.addEventListener("click", refreshMarket);
   ui.pauseBtn.addEventListener("click", () => {
     if (state.gameOver || state.modalOpen) return;
     state.paused = !state.paused;

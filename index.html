@@ -49,78 +49,125 @@
 
       <section class="command-panel" aria-label="指挥区">
         <div class="version-banner">
-          <strong id="versionText">V9 大扩展版</strong>
-          <span>主动战术 · 遗物 · 奇遇 · 天气 · 异变</span>
+          <strong id="versionText">V10 策略扩展版</strong>
+          <span>多界面 · 阵法 · 战力匹配 · 商店 · 剧情</span>
         </div>
 
-        <div class="tactic-grid tactic-grid-featured" aria-label="战术技能">
-          <button class="tactic-btn" id="stormBtn" type="button">
-            <strong>雷令</strong>
-            <small id="stormStatus">30 能量</small>
-          </button>
-          <button class="tactic-btn" id="frostBtn" type="button">
-            <strong>霜阵</strong>
-            <small id="frostStatus">24 能量</small>
-          </button>
-          <button class="tactic-btn" id="rallyBtn" type="button">
-            <strong>战鼓</strong>
-            <small id="rallyStatus">22 能量</small>
-          </button>
-          <button class="tactic-btn" id="mineBtn" type="button">
-            <strong>火雷</strong>
-            <small id="mineStatus">26 能量</small>
-          </button>
+        <div class="side-tabs" aria-label="指挥页签">
+          <button class="side-tab active" type="button" data-tab="battle">战场</button>
+          <button class="side-tab" type="button" data-tab="formation">阵法</button>
+          <button class="side-tab" type="button" data-tab="market">商店</button>
+          <button class="side-tab" type="button" data-tab="story">剧情</button>
         </div>
 
-        <div class="intel-panel">
-          <span id="energyText">能量 0/100</span>
-          <span id="weatherText">天气 平稳</span>
-          <span id="synergyText">羁绊 未成阵</span>
-          <span id="relicText">遗物 0</span>
-          <span id="objectiveText">目标 守住下一波</span>
-          <span id="achievementText">战功 0</span>
+        <div class="side-panel active" data-panel="battle">
+          <div class="power-card">
+            <strong id="powerText">我方战力 0</strong>
+            <span id="enemyPowerText">敌军预计 0</span>
+          </div>
+
+          <div class="tactic-grid tactic-grid-featured" aria-label="战术技能">
+            <button class="tactic-btn" id="stormBtn" type="button">
+              <strong>雷令</strong>
+              <small id="stormStatus">30 能量</small>
+            </button>
+            <button class="tactic-btn" id="frostBtn" type="button">
+              <strong>霜阵</strong>
+              <small id="frostStatus">24 能量</small>
+            </button>
+            <button class="tactic-btn" id="rallyBtn" type="button">
+              <strong>战鼓</strong>
+              <small id="rallyStatus">22 能量</small>
+            </button>
+            <button class="tactic-btn" id="mineBtn" type="button">
+              <strong>火雷</strong>
+              <small id="mineStatus">26 能量</small>
+            </button>
+          </div>
+
+          <div class="intel-panel">
+            <span id="energyText">能量 0/100</span>
+            <span id="weatherText">天气 平稳</span>
+            <span id="synergyText">羁绊 未成阵</span>
+            <span id="relicText">遗物 0</span>
+            <span id="objectiveText">目标 守住下一波</span>
+            <span id="achievementText">战功 0</span>
+          </div>
+
+          <div class="shop-grid">
+            <button class="shop-card" type="button" data-buy="rifle">
+              <span class="unit-mark rifle-mark"></span>
+              <strong>金弩手</strong>
+              <small id="cost-rifle">60</small>
+            </button>
+            <button class="shop-card" type="button" data-buy="guard">
+              <span class="unit-mark guard-mark"></span>
+              <strong>土盾卫</strong>
+              <small id="cost-guard">90</small>
+            </button>
+            <button class="shop-card" type="button" data-buy="medic">
+              <span class="unit-mark medic-mark"></span>
+              <strong>木医师</strong>
+              <small id="cost-medic">120</small>
+            </button>
+            <button class="shop-card" type="button" data-buy="mage">
+              <span class="unit-mark mage-mark"></span>
+              <strong>水术士</strong>
+              <small id="cost-mage">150</small>
+            </button>
+            <button class="shop-card" type="button" data-buy="turret">
+              <span class="unit-mark turret-mark"></span>
+              <strong>火炮台</strong>
+              <small id="cost-turret">180</small>
+            </button>
+          </div>
+
+          <div class="status-strip">
+            <span id="capText">兵力 0/8</span>
+            <span id="techStatusText">科技 0/1</span>
+            <span id="selectedText">未选中</span>
+            <span id="giftText">补给 3波</span>
+            <span id="bestText">最佳 0</span>
+          </div>
+
+          <div class="action-grid">
+            <button class="action-btn" id="upgradeSelectedBtn" type="button">升级选中</button>
+            <button class="action-btn" id="techBtn" type="button">科技</button>
+            <button class="action-btn" id="claimBtn" type="button">推进领地</button>
+          </div>
         </div>
 
-        <div class="shop-grid">
-          <button class="shop-card" type="button" data-buy="rifle">
-            <span class="unit-mark rifle-mark"></span>
-            <strong>步枪兵</strong>
-            <small id="cost-rifle">60</small>
-          </button>
-          <button class="shop-card" type="button" data-buy="guard">
-            <span class="unit-mark guard-mark"></span>
-            <strong>盾卫</strong>
-            <small id="cost-guard">90</small>
-          </button>
-          <button class="shop-card" type="button" data-buy="medic">
-            <span class="unit-mark medic-mark"></span>
-            <strong>木医师</strong>
-            <small id="cost-medic">120</small>
-          </button>
-          <button class="shop-card" type="button" data-buy="mage">
-            <span class="unit-mark mage-mark"></span>
-            <strong>水术士</strong>
-            <small id="cost-mage">150</small>
-          </button>
-          <button class="shop-card" type="button" data-buy="turret">
-            <span class="unit-mark turret-mark"></span>
-            <strong>火炮台</strong>
-            <small id="cost-turret">180</small>
-          </button>
+        <div class="side-panel" data-panel="formation">
+          <div class="section-title">
+            <strong>阵法台</strong>
+            <span id="formationText">当前：散阵</span>
+          </div>
+          <div class="formation-grid" id="formationGrid"></div>
+          <div class="manual-panel">
+            <strong>布阵提示</strong>
+            <span id="formationHint">阵法按你场上五行人数自动判断是否可用，选择后改变战斗重点。</span>
+          </div>
         </div>
 
-        <div class="status-strip">
-          <span id="capText">兵力 0/12</span>
-          <span id="techStatusText">科技 0/1</span>
-          <span id="selectedText">未选中</span>
-          <span id="giftText">补给 3波</span>
-          <span id="bestText">最佳 0</span>
+        <div class="side-panel" data-panel="market">
+          <div class="section-title">
+            <strong>军需商店</strong>
+            <span id="marketRefreshText">每 3 波刷新</span>
+          </div>
+          <div class="market-grid" id="marketGrid"></div>
+          <button class="action-btn wide-action" id="refreshMarketBtn" type="button">刷新商店</button>
         </div>
 
-        <div class="action-grid">
-          <button class="action-btn" id="upgradeSelectedBtn" type="button">升级选中</button>
-          <button class="action-btn" id="techBtn" type="button">科技</button>
-          <button class="action-btn" id="claimBtn" type="button">推进领地</button>
+        <div class="side-panel" data-panel="story">
+          <div class="section-title">
+            <strong>主线关卡</strong>
+            <span id="chapterText">旧木桥</span>
+          </div>
+          <div class="chapter-grid" id="chapterGrid"></div>
+          <div class="manual-panel">
+            <strong id="storyTitle">边境守线</strong>
+            <span id="storyText">敌军正在试探旧桥防线。选择不同关卡会改变主线地图、敌军元素和首领机制。</span>
+          </div>
         </div>
 
         <div class="save-grid">

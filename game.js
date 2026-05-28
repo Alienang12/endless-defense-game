@@ -19,6 +19,7 @@ const ui = {
   wave: document.getElementById("waveText"),
   base: document.getElementById("baseText"),
   cap: document.getElementById("capText"),
+  techStatus: document.getElementById("techStatusText"),
   selected: document.getElementById("selectedText"),
   gift: document.getElementById("giftText"),
   best: document.getElementById("bestText"),
@@ -431,8 +432,8 @@ function distance(a, b) {
 }
 
 function actorScale() {
-  if (WORLD.width > 760) return 0.66;
-  return 0.92;
+  if (WORLD.width > 760) return 0.48;
+  return 0.82;
 }
 
 function activePathCount() {
@@ -663,7 +664,7 @@ function scheduleWave() {
     }
   }
 
-  if (state.wave % 5 === 0) {
+  if (state.wave >= 3 && state.wave % 3 === 0) {
     state.spawnQueue.push({
       at: count * 0.45 + 1.2,
       type: "boss",
@@ -673,7 +674,7 @@ function scheduleWave() {
   }
 
   state.spawnQueue.sort((a, b) => a.at - b.at);
-  ui.waveRibbon.textContent = `第 ${state.wave} 波`;
+  ui.waveRibbon.textContent = state.wave >= 3 && state.wave % 3 === 0 ? `第 ${state.wave} 波 首领来袭` : `第 ${state.wave} 波`;
   ui.waveRibbon.classList.remove("show");
   void ui.waveRibbon.offsetWidth;
   ui.waveRibbon.classList.add("show");
@@ -1250,6 +1251,8 @@ function updateUi() {
   ui.wave.textContent = state.wave || 1;
   ui.base.textContent = `${Math.ceil(state.baseHp)}/${state.baseMaxHp}`;
   ui.cap.textContent = `兵力 ${currentUnitCount()}/${state.unitCap}`;
+  const cap = techCap();
+  if (ui.techStatus) ui.techStatus.textContent = `科技 ${state.techLevel}/${cap}`;
   ui.best.textContent = `最佳 ${Math.max(state.bestWave, state.wave)}`;
   ui.gift.textContent = `补给 ${state.wavesUntilGift}波`;
   ui.pauseIcon.textContent = state.paused ? "▶" : "II";
@@ -1262,9 +1265,8 @@ function updateUi() {
   ui.upgradeSelectedBtn.disabled = !unit || state.coins < selectedUpgradeCost() || state.modalOpen || state.gameOver;
   ui.claimBtn.textContent = state.canClaim ? `推进 ${claimCost()}` : "推进领地";
   ui.claimBtn.disabled = !state.canClaim || state.coins < claimCost() || state.modalOpen || state.gameOver;
-  const cap = techCap();
   const techMaxed = state.techLevel >= cap;
-  ui.techBtn.textContent = techMaxed ? `科技 Lv.${state.techLevel}/${cap}` : `科技 ${techCost()}`;
+  ui.techBtn.textContent = techMaxed ? `科技 Lv.${state.techLevel}/${cap}` : `科技 Lv.${state.techLevel}/${cap} · ${techCost()}`;
   ui.techBtn.disabled = state.modalOpen || state.gameOver || techMaxed || state.coins < techCost();
 
   Object.keys(UNIT_TYPES).forEach((type) => {

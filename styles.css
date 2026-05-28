@@ -45,7 +45,7 @@ button {
   height: 100dvh;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 238px;
+  grid-template-columns: minmax(0, 1fr) 318px;
   background: #273f32;
   box-shadow: 0 0 36px rgba(0, 0, 0, 0.35);
 }
@@ -168,7 +168,7 @@ button {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  justify-content: end;
+  justify-content: start;
   overflow-y: auto;
   padding: calc(64px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom));
   border-left: 4px solid var(--ink);
@@ -297,6 +297,16 @@ button {
   margin-bottom: 9px;
 }
 
+.battle-loadout-grid {
+  grid-template-columns: 1fr;
+}
+
+.battle-inventory-grid {
+  max-height: 186px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
 .formation-card,
 .market-card,
 .chapter-card,
@@ -360,6 +370,38 @@ button {
 
 .loadout-card {
   cursor: default;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.loadout-card strong,
+.loadout-card span,
+.loadout-card small {
+  grid-column: 1;
+}
+
+.loadout-card .slot-row {
+  grid-column: 1 / -1;
+}
+
+.hero-train-btn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-width: 66px;
+  height: 34px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: #9ed0c0;
+  color: #21150f;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 1000;
+  box-shadow: 0 3px 0 var(--ink);
+}
+
+.hero-train-btn:disabled {
+  filter: grayscale(0.75) brightness(0.7);
+  cursor: not-allowed;
 }
 
 .slot-row {
@@ -385,6 +427,13 @@ button {
 
 .gear-slot.filled {
   background: #f0ba63;
+}
+
+.gear-slot strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wide-action {
@@ -514,6 +563,10 @@ button {
   gap: 5px;
   align-items: center;
   margin-top: 8px;
+}
+
+.legacy-hidden {
+  display: none !important;
 }
 
 .status-strip span {

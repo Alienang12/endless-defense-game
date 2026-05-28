@@ -49,8 +49,8 @@
 
       <section class="command-panel" aria-label="指挥区">
         <div class="version-banner">
-          <strong id="versionText">V11 五行英雄版</strong>
-          <span>五英雄 · 装备槽 · 策略关卡 · 旧存档重置</span>
+          <strong id="versionText">V12 五行策略版</strong>
+          <span>五英雄 · 战场背包 · 关卡地图 · 旧存档重置</span>
         </div>
 
         <div class="side-tabs" aria-label="指挥页签">
@@ -94,6 +94,11 @@
             <span id="achievementText">战功 0</span>
           </div>
 
+          <div class="section-title compact-title">
+            <strong>五行英雄</strong>
+            <span>点击英雄查看并训练，拖动战场小人调整站位</span>
+          </div>
+
           <div class="shop-grid hero-grid">
             <button class="shop-card hero-card" type="button" data-hero="rifle">
               <span class="unit-mark rifle-mark"></span>
@@ -122,18 +127,29 @@
             </button>
           </div>
 
-          <div class="status-strip">
+          <div class="section-title compact-title">
+            <strong>英雄装备槽</strong>
+            <span id="loadoutText">每名英雄最多 2 件装备</span>
+          </div>
+          <div class="loadout-grid battle-loadout-grid" id="loadoutGrid"></div>
+
+          <div class="section-title compact-title">
+            <strong>背包</strong>
+            <span id="inventoryText">选择装备后点空槽装备</span>
+          </div>
+          <div class="inventory-grid battle-inventory-grid" id="inventoryGrid"></div>
+
+          <div class="status-strip legacy-hidden" aria-hidden="true">
             <span id="capText">兵力 0/8</span>
             <span id="techStatusText">科技 0/1</span>
             <span id="selectedText">未选中</span>
-            <span id="giftText">补给 3波</span>
+            <span id="giftText">补给 5波</span>
             <span id="bestText">最佳 0</span>
           </div>
 
-          <div class="action-grid">
+          <div class="action-grid legacy-hidden" aria-hidden="true">
             <button class="action-btn" id="upgradeSelectedBtn" type="button">升级选中</button>
             <button class="action-btn" id="techBtn" type="button">科技</button>
-            <button class="action-btn" id="claimBtn" type="button">推进领地</button>
           </div>
         </div>
 
@@ -147,16 +163,6 @@
             <strong>布阵提示</strong>
             <span id="formationHint">阵法按你场上五行人数自动判断是否可用，选择后改变战斗重点。</span>
           </div>
-          <div class="section-title">
-            <strong>英雄装备槽</strong>
-            <span id="loadoutText">每名英雄最多 2 件装备</span>
-          </div>
-          <div class="loadout-grid" id="loadoutGrid"></div>
-          <div class="section-title">
-            <strong>背包</strong>
-            <span id="inventoryText">关卡奖励会进入背包</span>
-          </div>
-          <div class="inventory-grid" id="inventoryGrid"></div>
         </div>
 
         <div class="side-panel" data-panel="market">
@@ -174,6 +180,7 @@
             <span id="chapterText">旧木桥</span>
           </div>
           <div class="chapter-grid" id="chapterGrid"></div>
+          <button class="action-btn wide-action story-claim-btn" id="claimBtn" type="button">推进领地</button>
           <div class="manual-panel">
             <strong id="storyTitle">边境守线</strong>
             <span id="storyText">敌军正在试探旧桥防线。选择不同关卡会改变主线地图、敌军元素和首领机制。</span>

@@ -208,53 +208,6 @@ const BIOMES = [
   { land: "#756f4a", hill: "#625d3d", water: "#4b6370", water2: "#576f7d", path: "#b88654" },
 ];
 
-const TECHS = [
-  {
-    id: "arms",
-    title: "军械科技",
-    desc: "全体攻击 +12%，射程 +5%",
-    cost: (level) => 190 + level * 155,
-    apply: () => {
-      state.tech.arms += 1;
-      state.upgrades.damage *= 1.12;
-      state.upgrades.range *= 1.05;
-    },
-  },
-  {
-    id: "fort",
-    title: "筑城科技",
-    desc: "城门上限 +170，并获得恢复",
-    cost: (level) => 180 + level * 145,
-    apply: () => {
-      state.tech.fort += 1;
-      state.baseMaxHp += 170;
-      state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 230);
-      state.upgrades.regen += 1.8;
-    },
-  },
-  {
-    id: "supply",
-    title: "后勤科技",
-    desc: "金币收益 +15%，兵力上限 +1",
-    cost: (level) => 165 + level * 135,
-    apply: () => {
-      state.tech.supply += 1;
-      state.upgrades.gold *= 1.15;
-      state.unitCap += 1;
-    },
-  },
-  {
-    id: "alchemy",
-    title: "五行研究",
-    desc: "元素克制伤害 +10%",
-    cost: (level) => 220 + level * 165,
-    apply: () => {
-      state.tech.alchemy += 1;
-      state.upgrades.elementPower += 0.1;
-    },
-  },
-];
-
 const UPGRADE_POOL = [
   {
     title: "全军攻击 +8%",
@@ -356,7 +309,7 @@ function createDefaultState() {
     wavesUntilGift: 3,
     coins: 280,
     lifetimeCoins: 0,
-    nextChoiceAt: 900,
+    nextChoiceAt: 750,
     choices: 0,
     kills: 0,
     baseHp: 1300,
@@ -373,6 +326,7 @@ function createDefaultState() {
     effects: [],
     floaters: [],
     bought: { rifle: 0, guard: 0, medic: 0, mage: 0, turret: 0 },
+    techLevel: 0,
     tech: { arms: 0, fort: 0, supply: 0, alchemy: 0 },
     elementBoost: { metal: 0, wood: 0, water: 0, fire: 0, earth: 0 },
     upgrades: {
@@ -476,6 +430,11 @@ function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+function actorScale() {
+  if (WORLD.width > 760) return 0.66;
+  return 0.92;
+}
+
 function activePathCount() {
   return Math.min(2, state.bridgeCount);
 }
@@ -501,14 +460,32 @@ function currentUnitCount() {
   return state.units.length;
 }
 
+function highestUnitLevel() {
+  return Math.max(1, ...state.units.map((unit) => unit.level || 1));
+}
+
+function techCap() {
+  return highestUnitLevel();
+}
+
+function techCost() {
+  const level = state.techLevel || 0;
+  return Math.round(755 + level * 600 + level * level * 42);
+}
+
 function costOf(type) {
   const meta = UNIT_TYPES[type];
   const growth = Math.pow(1.13, state.bought[type] || 0);
   return Math.max(1, Math.round(meta.baseCost * growth * state.upgrades.discount));
 }
 
+function abilityRequirementAt(choiceCount) {
+  const n = choiceCount || 0;
+  return Math.round(750 + 250 * n + 125 * n * Math.max(0, n - 1));
+}
+
 function nextAbilityRequirement() {
-  return Math.round(900 * Math.pow(1.42, state.choices));
+  return abilityRequirementAt(state.choices || 0);
 }
 
 function selectedUpgradeCost() {
@@ -586,41 +563,42 @@ function upgradeSelectedUnit() {
   updateUi();
 }
 
-function showTechPanel() {
+function upgradeTech() {
   if (state.gameOver || state.modalOpen) return;
-  state.modalOpen = true;
-  ui.choiceTitle.textContent = "选择科技";
-  ui.choiceGrid.innerHTML = "";
+  const cap = techCap();
+  if (state.techLevel >= cap) {
+    showToast(`科技上限受最高兵种 Lv.${cap} 限制`);
+    return;
+  }
 
-  TECHS.forEach((tech) => {
-    const level = state.tech[tech.id];
-    const cost = tech.cost(level);
-    const card = document.createElement("button");
-    card.className = "choice-card";
-    card.type = "button";
-    card.innerHTML = `
-      <span class="choice-icon text-icon" data-label="科" aria-hidden="true"></span>
-      <strong>${tech.title} Lv.${level}</strong>
-      <span>${tech.desc}<br>消耗 ${cost} 金币</span>
-    `;
-    card.addEventListener("click", () => {
-      if (state.coins < cost) {
-        closeModal();
-        showToast("金币不够");
-        return;
-      }
-      state.coins -= cost;
-      tech.apply();
-      closeModal();
-      showToast(`${tech.title} 提升`);
-      saveGame();
-      updateUi();
-    });
-    ui.choiceGrid.appendChild(card);
-  });
+  const cost = techCost();
+  if (state.coins < cost) {
+    showToast("金币不够");
+    return;
+  }
 
-  ui.choiceNote.textContent = "科技会永久强化部队和领地";
-  ui.choiceModal.hidden = false;
+  state.coins -= cost;
+  state.techLevel += 1;
+  state.tech = {
+    arms: state.techLevel,
+    fort: state.techLevel,
+    supply: state.techLevel,
+    alchemy: state.techLevel,
+  };
+  state.upgrades.damage *= 1.035;
+  state.upgrades.range *= 1.012;
+  state.baseMaxHp += 54 + state.techLevel * 5;
+  state.baseHp = Math.min(state.baseMaxHp, state.baseHp + 88 + state.techLevel * 4);
+  state.upgrades.regen += 0.16;
+  state.upgrades.gold *= 1.018;
+  state.upgrades.elementPower += 0.015;
+  if (state.techLevel % 5 === 0) state.unitCap += 1;
+
+  burst(WORLD.width * 0.48, WORLD.height * 0.44, "#ffe28e", 26);
+  addFloater(WORLD.width * 0.48, WORLD.height * 0.39, `科技 Lv.${state.techLevel}`, "#ffe28e");
+  showToast(`综合科技提升到 Lv.${state.techLevel}`);
+  saveGame();
+  updateUi();
 }
 
 function claimTerritory() {
@@ -659,14 +637,30 @@ function scheduleWave() {
   state.spawnQueue = [];
   state.canClaim = false;
 
-  const count = Math.min(4 + Math.floor(state.wave * 0.95) + state.territory, 68);
+  const count = Math.min(5 + Math.floor(state.wave * 1.02) + state.territory, 72);
+  const eliteChance =
+    state.wave < 4
+      ? 0.04
+      : Math.min(0.12 + state.wave * 0.014 + state.territory * 0.012 + (state.techLevel || 0) * 0.003, 0.52);
   for (let i = 0; i < count; i += 1) {
     state.spawnQueue.push({
       at: i * rand(0.38, 0.68),
       type: pickEnemyType(state.wave),
       pathIndex: Math.floor(Math.random() * activePathCount()),
-      elite: Math.random() < Math.min(0.08 + state.wave * 0.01, 0.28),
+      elite: Math.random() < eliteChance,
     });
+  }
+
+  if (state.wave >= 4) {
+    const heavyCount = Math.min(1 + Math.floor(state.wave / 9), 5);
+    for (let i = 0; i < heavyCount; i += 1) {
+      state.spawnQueue.push({
+        at: rand(1.4, count * 0.45 + 2.2),
+        type: state.wave % 6 === 0 ? "golem" : Math.random() < 0.55 ? "shell" : "cinder",
+        pathIndex: Math.floor(Math.random() * activePathCount()),
+        elite: true,
+      });
+    }
   }
 
   if (state.wave % 5 === 0) {
@@ -704,9 +698,18 @@ function pickEnemyType(wave) {
 
 function spawnEnemy(type, pathIndex, elite = false) {
   const meta = ENEMY_TYPES[type];
-  const armyPower = Math.max(0, state.units.reduce((sum, unit) => sum + unit.level, 0) - 4) * 0.055;
-  const techPower = Object.values(state.tech).reduce((sum, level) => sum + level, 0) * 0.045;
-  const scale = (1 + Math.pow(state.wave, 1.14) * 0.095 + state.territory * 0.06 + armyPower + techPower) * (elite ? 2.25 : 1);
+  const totalUnitLevel = state.units.reduce((sum, unit) => sum + unit.level, 0);
+  const armyPower = Math.max(0, totalUnitLevel - state.units.length) * 0.075;
+  const techPower = (state.techLevel || 0) * 0.12;
+  const upgradePressure =
+    Math.max(0, state.upgrades.damage - 1) * 1.1 +
+    Math.max(0, state.upgrades.fireRate - 1) * 0.9 +
+    Math.max(0, state.upgrades.range - 1) * 0.35 +
+    Math.max(0, state.upgrades.gold - 1) * 0.35 +
+    Math.max(0, state.upgrades.elementPower) * 0.65;
+  const scale =
+    (1 + Math.pow(state.wave, 1.2) * 0.13 + state.territory * 0.08 + armyPower + techPower + upgradePressure) *
+    (elite ? 3.35 : 1);
   const pos = pointOnPath(pathIndex, 0);
   const enemy = {
     id: entityId++,
@@ -718,9 +721,13 @@ function spawnEnemy(type, pathIndex, elite = false) {
     y: pos.y,
     hp: meta.hp * scale,
     maxHp: meta.hp * scale,
-    damage: meta.damage * (1 + state.wave * 0.055 + state.territory * 0.04 + techPower) * state.upgrades.enemyDamage * (elite ? 1.35 : 1),
-    speed: meta.speed * (1 + Math.min(state.wave * 0.009 + state.territory * 0.006, 0.62)),
-    armor: (meta.armor || 0) + Math.floor(state.wave / 6) + (elite ? 4 : 0),
+    damage:
+      meta.damage *
+      (1 + state.wave * 0.075 + state.territory * 0.055 + techPower * 0.45 + armyPower * 0.16) *
+      state.upgrades.enemyDamage *
+      (elite ? 1.75 : 1),
+    speed: meta.speed * (1 + Math.min(state.wave * 0.011 + state.territory * 0.008, 0.72)),
+    armor: (meta.armor || 0) + Math.floor(state.wave / 4) + Math.floor(techPower * 3) + (elite ? 8 + Math.floor(state.wave / 8) : 0),
     reward: Math.round(meta.reward * (1 + state.wave * 0.016 + state.territory * 0.026) * state.upgrades.gold),
     element: type === "boss" ? ELEMENT_ORDER[state.wave % ELEMENT_ORDER.length] : meta.element,
     color: meta.color,
@@ -731,6 +738,18 @@ function spawnEnemy(type, pathIndex, elite = false) {
     elite,
   };
   state.enemies.push(enemy);
+  if (elite) {
+    state.effects.push({
+      type: "ring",
+      x: enemy.x,
+      y: enemy.y,
+      color: "#ffe28e",
+      life: 0.8,
+      maxLife: 0.8,
+      radius: type === "boss" ? 58 : 42,
+    });
+    addFloater(enemy.x, enemy.y - 34, type === "boss" ? "首领" : "精英", "#ffe28e");
+  }
 }
 
 function update(dt) {
@@ -991,9 +1010,9 @@ function hitEnemy(enemy, rawDamage, source, options = {}) {
     x: enemy.x,
     y: enemy.y - 8,
     color: source.color || ELEMENTS[attackerElement]?.color || "#f8f2cd",
-    life: 0.26,
-    maxLife: 0.26,
-    radius: multiplier > 1.2 ? 34 : 22,
+    life: 0.34,
+    maxLife: 0.34,
+    radius: multiplier > 1.2 ? 44 : 28,
   });
   addFloater(enemy.x, enemy.y - 18, `${Math.round(damage)}`, source.color || "#fff2c7");
   if (multiplier > 1.2) addFloater(enemy.x, enemy.y - 32, "克制", ELEMENTS[attackerElement].color);
@@ -1073,7 +1092,7 @@ function showChoiceCards() {
     });
     ui.choiceGrid.appendChild(card);
   });
-  ui.choiceNote.textContent = `下一次需要新增 ${nextAbilityRequirement()} 金币`;
+  ui.choiceNote.textContent = `本次后下一档约 ${abilityRequirementAt(state.choices + 1)} 金币`;
   ui.choiceModal.hidden = false;
 }
 
@@ -1243,7 +1262,10 @@ function updateUi() {
   ui.upgradeSelectedBtn.disabled = !unit || state.coins < selectedUpgradeCost() || state.modalOpen || state.gameOver;
   ui.claimBtn.textContent = state.canClaim ? `推进 ${claimCost()}` : "推进领地";
   ui.claimBtn.disabled = !state.canClaim || state.coins < claimCost() || state.modalOpen || state.gameOver;
-  ui.techBtn.disabled = state.modalOpen || state.gameOver;
+  const cap = techCap();
+  const techMaxed = state.techLevel >= cap;
+  ui.techBtn.textContent = techMaxed ? `科技 Lv.${state.techLevel}/${cap}` : `科技 ${techCost()}`;
+  ui.techBtn.disabled = state.modalOpen || state.gameOver || techMaxed || state.coins < techCost();
 
   Object.keys(UNIT_TYPES).forEach((type) => {
     ui.costs[type].textContent = costOf(type);
@@ -1446,7 +1468,8 @@ function drawUnit(unit) {
   const meta = UNIT_TYPES[unit.type];
   const elem = ELEMENTS[meta.element];
   const selected = state.selectedId === unit.id;
-  const scale = 1 + Math.min(unit.level - 1, 8) * 0.045;
+  const visualScale = actorScale();
+  const scale = visualScale * (1 + Math.min(unit.level - 1, 8) * 0.045);
   const bob = Math.sin(state.time * 4 + unit.id) * 1.4;
   const x = unit.x;
   const y = unit.y + bob;
@@ -1517,7 +1540,8 @@ function drawUnit(unit) {
   ctx.fillText(String(unit.level), 0, 31);
   ctx.restore();
 
-  drawHpBar(unit.x - 23, unit.y - 47 - (scale - 1) * 18, 46, unit.hp / unit.maxHp, "#77cf8a");
+  const hpWidth = 44 * visualScale;
+  drawHpBar(unit.x - hpWidth / 2, unit.y - 46 * visualScale - Math.max(0, scale - visualScale) * 18, hpWidth, unit.hp / unit.maxHp, "#77cf8a");
 }
 
 function drawUnitIdentity(type, color) {
@@ -1608,7 +1632,8 @@ function drawEnemy(enemy) {
   const elem = ELEMENTS[enemy.element];
   const x = enemy.x;
   const y = enemy.y + Math.sin(state.time * enemy.speed * 0.06 + enemy.id) * 2;
-  const scale = enemy.type === "boss" ? 1.38 : enemy.type === "golem" ? 1.22 : enemy.type === "shell" ? 1.12 : 1;
+  const baseScale = enemy.type === "boss" ? 1.42 : enemy.type === "golem" ? 1.24 : enemy.type === "shell" ? 1.12 : 1;
+  const scale = actorScale() * baseScale * (enemy.elite ? 1.14 : 1);
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(scale, scale);
@@ -1635,6 +1660,13 @@ function drawEnemy(enemy) {
     ctx.beginPath();
     ctx.arc(0, -3, 25, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.fillStyle = "#ffe28e";
+    ctx.strokeStyle = "#1b1713";
+    ctx.lineWidth = 3;
+    ctx.font = "900 14px Microsoft YaHei, sans-serif";
+    ctx.textAlign = "center";
+    ctx.strokeText(enemy.type === "boss" ? "王" : "精", 0, 8);
+    ctx.fillText(enemy.type === "boss" ? "王" : "精", 0, 8);
   }
 
   ctx.fillStyle = elem.color;
@@ -1711,17 +1743,20 @@ function drawProjectiles() {
   state.projectiles.forEach((projectile) => {
     if (projectile.prevX !== undefined) {
       ctx.strokeStyle = projectile.color;
-      ctx.globalAlpha = 0.55;
-      ctx.lineWidth = projectile.splash ? 5 : 3;
+      ctx.globalAlpha = 0.7;
+      ctx.lineWidth = projectile.splash ? 7 : 4;
+      ctx.shadowColor = projectile.color;
+      ctx.shadowBlur = projectile.splash ? 12 : 7;
       ctx.beginPath();
       ctx.moveTo(projectile.prevX, projectile.prevY);
       ctx.lineTo(projectile.x, projectile.y);
       ctx.stroke();
+      ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     }
     ctx.fillStyle = projectile.color;
     ctx.beginPath();
-    ctx.arc(projectile.x, projectile.y, projectile.splash ? 5 : 3.5, 0, Math.PI * 2);
+    ctx.arc(projectile.x, projectile.y, projectile.splash ? 6 : 4.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = "#1b1713";
     ctx.lineWidth = 1.5;
@@ -1797,7 +1832,8 @@ function pointerPosition(event) {
 }
 
 function unitAt(x, y) {
-  return [...state.units].reverse().find((unit) => Math.hypot(unit.x - x, unit.y - y) <= 32);
+  const radius = WORLD.width > 760 ? 24 : 32;
+  return [...state.units].reverse().find((unit) => Math.hypot(unit.x - x, unit.y - y) <= radius);
 }
 
 function handlePointerDown(event) {
@@ -1836,7 +1872,7 @@ function handlePointerUp() {
 function saveGame() {
   if (!state || state.gameOver) return;
   const payload = {
-    version: 3,
+    version: 4,
     wave: state.wave,
     bridgeCount: state.bridgeCount,
     territory: state.territory,
@@ -1851,6 +1887,7 @@ function saveGame() {
     baseMaxHp: state.baseMaxHp,
     unitCap: state.unitCap,
     bought: state.bought,
+    techLevel: state.techLevel,
     tech: state.tech,
     upgrades: state.upgrades,
     elementBoost: state.elementBoost,
@@ -1874,7 +1911,7 @@ function createSaveCode() {
 function loadSaveCode(code) {
   const raw = decodeURIComponent(escape(atob(code.trim())));
   const parsed = JSON.parse(raw);
-  if (!parsed || parsed.version !== 3) throw new Error("bad save");
+  if (!parsed || ![3, 4].includes(parsed.version)) throw new Error("bad save");
   localStorage.setItem(SAVE_KEY, raw);
   state = createDefaultState();
   entityId = 1;
@@ -1911,7 +1948,7 @@ function loadGame() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     const saved = JSON.parse(raw);
-    if (!saved || saved.version !== 3) return false;
+    if (!saved || ![3, 4].includes(saved.version)) return false;
 
     state.wave = saved.wave || 0;
     state.bridgeCount = saved.bridgeCount || 1;
@@ -1922,7 +1959,8 @@ function loadGame() {
     state.lifetimeCoins = saved.lifetimeCoins || 0;
     state.choices = saved.choices || 0;
     state.nextChoiceAt = saved.nextChoiceAt || state.lifetimeCoins + nextAbilityRequirement();
-    if (state.nextChoiceAt <= state.lifetimeCoins) {
+    const nextGap = Math.max(1500, nextAbilityRequirement());
+    if (saved.version < 4 || state.nextChoiceAt <= state.lifetimeCoins || state.nextChoiceAt - state.lifetimeCoins > nextGap * 6) {
       state.nextChoiceAt = state.lifetimeCoins + nextAbilityRequirement();
     }
     state.kills = saved.kills || 0;
@@ -1931,6 +1969,10 @@ function loadGame() {
     state.unitCap = saved.unitCap || state.unitCap;
     state.bought = { ...state.bought, ...(saved.bought || {}) };
     state.tech = { ...state.tech, ...(saved.tech || {}) };
+    state.techLevel =
+      Number.isFinite(saved.techLevel)
+        ? Math.max(0, Math.floor(saved.techLevel))
+        : Math.max(0, ...Object.values(saved.tech || {}).map((level) => Number(level) || 0));
     state.upgrades = { ...state.upgrades, ...(saved.upgrades || {}) };
     state.elementBoost = { ...state.elementBoost, ...(saved.elementBoost || {}) };
     state.bestWave = Math.max(state.bestWave, saved.bestWave || 0);
@@ -1960,6 +2002,13 @@ function loadGame() {
           selectedPulse: rand(0, Math.PI * 2),
         };
       });
+    state.techLevel = Math.min(state.techLevel, highestUnitLevel());
+    state.tech = {
+      arms: state.techLevel,
+      fort: state.techLevel,
+      supply: state.techLevel,
+      alchemy: state.techLevel,
+    };
     state.selectedId = state.units[0]?.id || null;
     return true;
   } catch {
@@ -2017,7 +2066,7 @@ function init() {
   });
   ui.restartBtn.addEventListener("click", restart);
   ui.upgradeSelectedBtn.addEventListener("click", upgradeSelectedUnit);
-  ui.techBtn.addEventListener("click", showTechPanel);
+  ui.techBtn.addEventListener("click", upgradeTech);
   ui.claimBtn.addEventListener("click", claimTerritory);
   ui.saveBtn.addEventListener("click", () => {
     saveGame();

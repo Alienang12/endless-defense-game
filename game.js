@@ -356,7 +356,7 @@ function createDefaultState() {
     wavesUntilGift: 3,
     coins: 280,
     lifetimeCoins: 0,
-    nextChoiceAt: 750,
+    nextChoiceAt: 900,
     choices: 0,
     kills: 0,
     baseHp: 1300,
@@ -370,6 +370,7 @@ function createDefaultState() {
     enemies: [],
     projectiles: [],
     particles: [],
+    effects: [],
     floaters: [],
     bought: { rifle: 0, guard: 0, medic: 0, mage: 0, turret: 0 },
     tech: { arms: 0, fort: 0, supply: 0, alchemy: 0 },
@@ -506,6 +507,10 @@ function costOf(type) {
   return Math.max(1, Math.round(meta.baseCost * growth * state.upgrades.discount));
 }
 
+function nextAbilityRequirement() {
+  return Math.round(900 * Math.pow(1.42, state.choices));
+}
+
 function selectedUpgradeCost() {
   const unit = selectedUnit();
   if (!unit) return 0;
@@ -594,7 +599,7 @@ function showTechPanel() {
     card.className = "choice-card";
     card.type = "button";
     card.innerHTML = `
-      <span class="choice-icon" aria-hidden="true"></span>
+      <span class="choice-icon text-icon" data-label="科" aria-hidden="true"></span>
       <strong>${tech.title} Lv.${level}</strong>
       <span>${tech.desc}<br>消耗 ${cost} 金币</span>
     `;
@@ -699,8 +704,9 @@ function pickEnemyType(wave) {
 
 function spawnEnemy(type, pathIndex, elite = false) {
   const meta = ENEMY_TYPES[type];
-  const armyPower = Math.max(0, state.units.reduce((sum, unit) => sum + unit.level, 0) - 4) * 0.018;
-  const scale = (1 + Math.pow(state.wave, 1.08) * 0.064 + state.territory * 0.032 + armyPower) * (elite ? 1.75 : 1);
+  const armyPower = Math.max(0, state.units.reduce((sum, unit) => sum + unit.level, 0) - 4) * 0.055;
+  const techPower = Object.values(state.tech).reduce((sum, level) => sum + level, 0) * 0.045;
+  const scale = (1 + Math.pow(state.wave, 1.14) * 0.095 + state.territory * 0.06 + armyPower + techPower) * (elite ? 2.25 : 1);
   const pos = pointOnPath(pathIndex, 0);
   const enemy = {
     id: entityId++,
@@ -712,9 +718,9 @@ function spawnEnemy(type, pathIndex, elite = false) {
     y: pos.y,
     hp: meta.hp * scale,
     maxHp: meta.hp * scale,
-    damage: meta.damage * (1 + state.wave * 0.04 + state.territory * 0.026) * state.upgrades.enemyDamage,
-    speed: meta.speed * (1 + Math.min(state.wave * 0.006, 0.45)),
-    armor: meta.armor || 0,
+    damage: meta.damage * (1 + state.wave * 0.055 + state.territory * 0.04 + techPower) * state.upgrades.enemyDamage * (elite ? 1.35 : 1),
+    speed: meta.speed * (1 + Math.min(state.wave * 0.009 + state.territory * 0.006, 0.62)),
+    armor: (meta.armor || 0) + Math.floor(state.wave / 6) + (elite ? 4 : 0),
     reward: Math.round(meta.reward * (1 + state.wave * 0.016 + state.territory * 0.026) * state.upgrades.gold),
     element: type === "boss" ? ELEMENT_ORDER[state.wave % ELEMENT_ORDER.length] : meta.element,
     color: meta.color,
@@ -948,6 +954,8 @@ function updateProjectiles(dt) {
     const dy = target.y - projectile.y - 8;
     const dist = Math.hypot(dx, dy);
     const travel = projectile.speed * dt;
+    projectile.prevX = projectile.x;
+    projectile.prevY = projectile.y;
     if (dist <= travel || dist < 8) {
       hitEnemy(target, projectile.damage, projectile, projectile);
       if (projectile.slow) {
@@ -978,6 +986,16 @@ function hitEnemy(enemy, rawDamage, source, options = {}) {
   const damage = Math.max(1, rawDamage * multiplier - armor);
   enemy.hp -= damage;
   enemy.attackFlash = Math.max(enemy.attackFlash, 0.45);
+  state.effects.push({
+    type: "ring",
+    x: enemy.x,
+    y: enemy.y - 8,
+    color: source.color || ELEMENTS[attackerElement]?.color || "#f8f2cd",
+    life: 0.26,
+    maxLife: 0.26,
+    radius: multiplier > 1.2 ? 34 : 22,
+  });
+  addFloater(enemy.x, enemy.y - 18, `${Math.round(damage)}`, source.color || "#fff2c7");
   if (multiplier > 1.2) addFloater(enemy.x, enemy.y - 32, "克制", ELEMENTS[attackerElement].color);
   burst(enemy.x, enemy.y - 8, source.color || ELEMENTS[attackerElement]?.color || "#f8f2cd", multiplier > 1.2 ? 7 : 4);
 }
@@ -1028,8 +1046,6 @@ function explodeEnemy(enemy) {
 function checkUpgradeChoice() {
   if (state.lifetimeCoins < state.nextChoiceAt || state.modalOpen || state.gameOver) return;
   state.modalOpen = true;
-  state.choices += 1;
-  state.nextChoiceAt += 750;
   showChoiceCards();
 }
 
@@ -1042,12 +1058,14 @@ function showChoiceCards() {
     card.className = "choice-card";
     card.type = "button";
     card.innerHTML = `
-      <span class="choice-icon" aria-hidden="true"></span>
+      <span class="choice-icon text-icon" data-label="${upgrade.title.slice(0, 1)}" aria-hidden="true"></span>
       <strong>${upgrade.title}</strong>
       <span>${upgrade.desc}</span>
     `;
     card.addEventListener("click", () => {
       upgrade.apply();
+      state.choices += 1;
+      state.nextChoiceAt = state.lifetimeCoins + nextAbilityRequirement();
       closeModal();
       showToast(upgrade.title);
       saveGame();
@@ -1055,7 +1073,7 @@ function showChoiceCards() {
     });
     ui.choiceGrid.appendChild(card);
   });
-  ui.choiceNote.textContent = "每收集 750 金币可选择一次能力加成";
+  ui.choiceNote.textContent = `下一次需要新增 ${nextAbilityRequirement()} 金币`;
   ui.choiceModal.hidden = false;
 }
 
@@ -1071,7 +1089,7 @@ function showGiftPanel() {
     card.className = "choice-card";
     card.type = "button";
     card.innerHTML = `
-      <span class="choice-icon" aria-hidden="true"></span>
+      <span class="choice-icon text-icon" data-label="补" aria-hidden="true"></span>
       <strong>${reward.title}</strong>
       <span>${reward.desc}</span>
     `;
@@ -1170,6 +1188,11 @@ function updateEffects(dt) {
   });
   state.particles = state.particles.filter((particle) => particle.life > 0);
 
+  state.effects.forEach((effect) => {
+    effect.life -= dt;
+  });
+  state.effects = state.effects.filter((effect) => effect.life > 0);
+
   state.floaters.forEach((floater) => {
     floater.life -= dt;
     floater.y -= 28 * dt;
@@ -1245,6 +1268,7 @@ function render() {
   drawEnemyFort(w, h);
   drawEntities();
   drawProjectiles();
+  drawEffects();
   drawParticles();
   drawFloaters();
   drawForeground(w, h);
@@ -1273,6 +1297,30 @@ function drawBackground(w, h) {
 
   ctx.fillStyle = "rgba(222, 188, 102, 0.16)";
   roundRect(WORLD.deployLeft - 24, WORLD.deployTop - 28, WORLD.deployRight - WORLD.deployLeft + 48, WORLD.deployBottom - WORLD.deployTop + 56, 12, true, false);
+  drawBiomeDecor(w, h, (state.territory - 1) % BIOMES.length);
+}
+
+function drawBiomeDecor(w, h, biomeIndex) {
+  const decor = [
+    { color: "#6fb36b", accent: "#365d31" },
+    { color: "#d6bd58", accent: "#6d5a29" },
+    { color: "#6dd0bd", accent: "#285d62" },
+    { color: "#d8794b", accent: "#683721" },
+  ][biomeIndex];
+  for (let i = 0; i < 9; i += 1) {
+    const x = ((i * 137 + state.territory * 61) % Math.max(1, w - 140)) + 90;
+    const y = h * (0.29 + ((i * 47) % 43) / 100);
+    if (x > WORLD.deployLeft - 34 && x < WORLD.deployRight + 34 && y > WORLD.deployTop - 20 && y < WORLD.deployBottom + 20) continue;
+    ctx.fillStyle = decor.accent;
+    ctx.fillRect(x - 3, y + 8, 6, 18);
+    ctx.fillStyle = decor.color;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 15 + (i % 3) * 3, 10 + (i % 2) * 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#1b1713";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
 }
 
 function drawHill(x, y, width, height) {
@@ -1436,6 +1484,7 @@ function drawUnit(unit) {
   ctx.fillStyle = "#1b1713";
   ctx.fillRect(-6, -17, 3, 7);
   ctx.fillRect(5, -17, 3, 7);
+  drawUnitIdentity(unit.type, elem.color);
   drawUnitWeapon(unit.type, unit.attackFlash);
 
   ctx.fillStyle = elem.color;
@@ -1469,6 +1518,45 @@ function drawUnit(unit) {
   ctx.restore();
 
   drawHpBar(unit.x - 23, unit.y - 47 - (scale - 1) * 18, 46, unit.hp / unit.maxHp, "#77cf8a");
+}
+
+function drawUnitIdentity(type, color) {
+  if (type === "rifle") {
+    ctx.fillStyle = "#d8c372";
+    ctx.beginPath();
+    ctx.moveTo(-15, -25);
+    ctx.lineTo(0, -39);
+    ctx.lineTo(15, -25);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (type === "guard") {
+    ctx.fillStyle = "#5e6f73";
+    roundRect(-20, -2, 8, 27, 4, true, true);
+  } else if (type === "medic") {
+    ctx.fillStyle = "#c9f2b5";
+    ctx.beginPath();
+    ctx.ellipse(-13, -24, 9, 5, -0.6, 0, Math.PI * 2);
+    ctx.ellipse(13, -24, 9, 5, 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (type === "mage") {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(-16, 24);
+    ctx.lineTo(0, -3);
+    ctx.lineTo(16, 24);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (type === "turret") {
+    ctx.fillStyle = "#3a3a31";
+    ctx.beginPath();
+    ctx.arc(-12, 23, 7, 0, Math.PI * 2);
+    ctx.arc(12, 23, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
 }
 
 function drawUnitWeapon(type, flash) {
@@ -1621,6 +1709,16 @@ function drawHpBar(x, y, width, pct, color) {
 
 function drawProjectiles() {
   state.projectiles.forEach((projectile) => {
+    if (projectile.prevX !== undefined) {
+      ctx.strokeStyle = projectile.color;
+      ctx.globalAlpha = 0.55;
+      ctx.lineWidth = projectile.splash ? 5 : 3;
+      ctx.beginPath();
+      ctx.moveTo(projectile.prevX, projectile.prevY);
+      ctx.lineTo(projectile.x, projectile.y);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
     ctx.fillStyle = projectile.color;
     ctx.beginPath();
     ctx.arc(projectile.x, projectile.y, projectile.splash ? 5 : 3.5, 0, Math.PI * 2);
@@ -1628,6 +1726,19 @@ function drawProjectiles() {
     ctx.strokeStyle = "#1b1713";
     ctx.lineWidth = 1.5;
     ctx.stroke();
+  });
+}
+
+function drawEffects() {
+  state.effects.forEach((effect) => {
+    const t = clamp(effect.life / effect.maxLife, 0, 1);
+    ctx.globalAlpha = t;
+    ctx.strokeStyle = effect.color;
+    ctx.lineWidth = 5 * t;
+    ctx.beginPath();
+    ctx.arc(effect.x, effect.y, effect.radius * (1.15 - t * 0.25), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
   });
 }
 
@@ -1809,8 +1920,11 @@ function loadGame() {
     state.wavesUntilGift = saved.wavesUntilGift || 3;
     state.coins = saved.coins ?? state.coins;
     state.lifetimeCoins = saved.lifetimeCoins || 0;
-    state.nextChoiceAt = saved.nextChoiceAt || 750;
     state.choices = saved.choices || 0;
+    state.nextChoiceAt = saved.nextChoiceAt || state.lifetimeCoins + nextAbilityRequirement();
+    if (state.nextChoiceAt <= state.lifetimeCoins) {
+      state.nextChoiceAt = state.lifetimeCoins + nextAbilityRequirement();
+    }
     state.kills = saved.kills || 0;
     state.baseHp = saved.baseHp || state.baseHp;
     state.baseMaxHp = saved.baseMaxHp || state.baseMaxHp;

@@ -1,7 +1,7 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-const SAVE_KEY = "endlessDefenseV3Save";
+const SAVE_KEY = "endlessDefenseV11StrategySave";
 
 const ELEMENTS = {
   metal: { label: "金", color: "#f1d067", beats: "wood" },
@@ -29,6 +29,10 @@ const ui = {
   formation: document.getElementById("formationText"),
   formationGrid: document.getElementById("formationGrid"),
   formationHint: document.getElementById("formationHint"),
+  loadout: document.getElementById("loadoutGrid"),
+  loadoutText: document.getElementById("loadoutText"),
+  inventory: document.getElementById("inventoryGrid"),
+  inventoryText: document.getElementById("inventoryText"),
   marketGrid: document.getElementById("marketGrid"),
   refreshMarketBtn: document.getElementById("refreshMarketBtn"),
   marketRefresh: document.getElementById("marketRefreshText"),
@@ -88,7 +92,7 @@ const ui = {
     mage: document.getElementById("cost-mage"),
     turret: document.getElementById("cost-turret"),
   },
-  shopButtons: [...document.querySelectorAll("[data-buy]")],
+  shopButtons: [...document.querySelectorAll("[data-hero]")],
 };
 
 const WORLD = {
@@ -117,7 +121,7 @@ const UNIT_TYPES = {
     role: "穿甲远程",
   },
   guard: {
-    name: "土盾卫",
+    name: "土守将",
     baseCost: 95,
     hp: 230,
     damage: 13,
@@ -126,10 +130,10 @@ const UNIT_TYPES = {
     moveSpeed: 132,
     element: "earth",
     color: "#a7835b",
-    role: "堵桥承伤",
+    role: "城墙守护",
   },
   medic: {
-    name: "木医师",
+    name: "木灵使",
     baseCost: 125,
     hp: 86,
     damage: 5,
@@ -138,10 +142,10 @@ const UNIT_TYPES = {
     moveSpeed: 156,
     element: "wood",
     color: "#77b978",
-    role: "治疗续航",
+    role: "治疗复苏",
   },
   mage: {
-    name: "水术士",
+    name: "水镜师",
     baseCost: 150,
     hp: 78,
     damage: 11,
@@ -153,7 +157,7 @@ const UNIT_TYPES = {
     role: "减速控场",
   },
   turret: {
-    name: "火炮台",
+    name: "火炮将",
     baseCost: 190,
     hp: 155,
     damage: 16,
@@ -555,6 +559,131 @@ const MARKET_ITEMS = [
       state.forceBoss += 1;
       state.nextBossReward *= 2;
     },
+  },
+];
+
+const HERO_TYPES = ["rifle", "guard", "medic", "mage", "turret"];
+
+const CORE_GEAR = [
+  {
+    id: "storm_crown",
+    name: "雷暴冠",
+    rank: "史诗",
+    slot: "attack",
+    desc: "适合高血Boss：装备者单体伤害 +75%，命中精英会落雷。",
+    stats: { singleDamage: 0.75, eliteLightning: 1 },
+  },
+  {
+    id: "tide_chain",
+    name: "潮汐锁链",
+    rank: "稀有",
+    slot: "control",
+    desc: "适合快怪关：装备者攻击会强缓速，水系额外冰封。",
+    stats: { slowPower: 0.95, waterRoot: 0.18 },
+  },
+  {
+    id: "ember_orb",
+    name: "赤焰珠",
+    rank: "稀有",
+    slot: "aoe",
+    desc: "适合群怪关：范围伤害 +65%，火场持续更久。",
+    stats: { splashDamage: 0.65, mineFireField: 1, fireDamage: 0.28 },
+  },
+  {
+    id: "earth_heart",
+    name: "厚土心",
+    rank: "史诗",
+    slot: "defense",
+    desc: "适合高攻关：城门承伤 -35%，土系英雄阻挡翻倍。",
+    stats: { baseDamageReduce: 0.35, guardBlock: 1.0, hp: 0.35 },
+  },
+  {
+    id: "green_bell",
+    name: "青木铃",
+    rank: "稀有",
+    slot: "support",
+    desc: "适合消耗关：治疗 +120%，濒死英雄会被拉回一次。",
+    stats: { heal: 1.2, deathSave: 0.35 },
+  },
+  {
+    id: "golden_needle",
+    name: "金针",
+    rank: "普通",
+    slot: "attack",
+    desc: "适合护甲关：穿甲 +45%，金系暴击 +25%。",
+    stats: { pierce: 0.45, metalCrit: 0.25 },
+  },
+  {
+    id: "mirror_shell",
+    name: "镜壳",
+    rank: "稀有",
+    slot: "defense",
+    desc: "适合远程Boss：每波给城门厚护盾，并反震首领。",
+    stats: { waveShield: 550, bossDamageTaken: 0.2 },
+  },
+  {
+    id: "wind_boots",
+    name: "疾风靴",
+    rank: "普通",
+    slot: "speed",
+    desc: "适合多线关：射速 +45%，弹道速度 +60%。",
+    stats: { fireRate: 0.45, projectileSpeed: 0.6 },
+  },
+  {
+    id: "black_salt_big",
+    name: "黑盐罐",
+    rank: "稀有",
+    slot: "curse",
+    desc: "适合厚甲精英：敌军护甲 -18，精英护甲额外 -35。",
+    stats: { armorBreak: 18, eliteArmorBreak: 35 },
+  },
+  {
+    id: "five_flag",
+    name: "五色令旗",
+    rank: "史诗",
+    slot: "formation",
+    desc: "适合阵法关：当前阵法效果 +80%，五行克制伤害 +35%。",
+    stats: { formationMastery: 0.8, elementPower: 0.35 },
+  },
+  {
+    id: "hunter_mark",
+    name: "猎王印",
+    rank: "史诗",
+    slot: "boss",
+    desc: "适合首领关：Boss 承伤 +55%，首领阶段护盾减半。",
+    stats: { bossDamageTaken: 0.55, bossShieldCut: 0.5 },
+  },
+  {
+    id: "thorn_seed",
+    name: "荆棘种",
+    rank: "普通",
+    slot: "control",
+    desc: "适合小怪潮：敌人靠近城门时被缠绕，木系触发更强。",
+    stats: { bridgeSlow: 0.28, slowDamageTaken: 0.22 },
+  },
+  {
+    id: "sun_core",
+    name: "日核",
+    rank: "史诗",
+    slot: "aoe",
+    desc: "适合最终波：全队伤害 +35%，但敌军也会更早出精英。",
+    stats: { damage: 0.35, eliteChance: 0.08 },
+  },
+  {
+    id: "moon_well_big",
+    name: "大月井",
+    rank: "稀有",
+    slot: "energy",
+    desc: "适合技能关：能量上限 +80，每波开始恢复 55 能量。",
+    stats: { maxEnergy: 80, waveEnergy: 55 },
+  },
+  {
+    id: "siege_manual",
+    name: "破城书",
+    rank: "普通",
+    slot: "boss",
+    desc: "适合城墙关：对有护盾敌人伤害 +70%。",
+    stats: { shieldDamage: 0.7 },
   },
 ];
 
@@ -1530,6 +1659,15 @@ function createDefaultState() {
     marketRefreshes: 0,
     activeChapter: "border_bridge",
     completedChapters: {},
+    inventory: ["golden_needle", "tide_chain", "earth_heart", "ember_orb", "green_bell"],
+    loadouts: {
+      rifle: ["golden_needle"],
+      guard: ["earth_heart"],
+      medic: ["green_bell"],
+      mage: ["tide_chain"],
+      turret: ["ember_orb"],
+    },
+    selectedGear: null,
     nextEventWave: 4,
     queuedRelicChoices: 0,
     queuedScenarioEvents: 0,
@@ -1537,7 +1675,7 @@ function createDefaultState() {
     territory: 1,
     canClaim: false,
     wavesUntilGift: 3,
-    coins: 280,
+    coins: 360,
     lifetimeCoins: 0,
     energy: 30,
     maxEnergy: 100,
@@ -1703,7 +1841,23 @@ function currentMutation() {
 }
 
 function relicStat(key) {
-  return state.relicStats?.[key] || 0;
+  let total = state.relicStats?.[key] || 0;
+  Object.values(state.loadouts || {}).flat().forEach((gearId) => {
+    const gear = CORE_GEAR.find((item) => item.id === gearId) || RELIC_POOL.find((item) => item.id === gearId);
+    total += gear?.stats?.[key] || 0;
+  });
+  return total;
+}
+
+function heroGearStat(heroType, key) {
+  return (state.loadouts?.[heroType] || []).reduce((sum, gearId) => {
+    const gear = CORE_GEAR.find((item) => item.id === gearId) || RELIC_POOL.find((item) => item.id === gearId);
+    return sum + (gear?.stats?.[key] || 0);
+  }, 0);
+}
+
+function gearById(id) {
+  return CORE_GEAR.find((item) => item.id === id) || RELIC_POOL.find((item) => item.id === id);
 }
 
 function relicMultiplier(key) {
@@ -1758,7 +1912,12 @@ function unitPower(unit) {
   if (!meta) return 0;
   const levelScale = 1 + (unit.level - 1) * 0.34;
   const roleWeight = unit.type === "guard" ? 1.08 : unit.type === "medic" ? 0.95 : unit.type === "turret" ? 1.16 : 1;
-  return Math.round((meta.hp * 0.12 + meta.damage * meta.fireRate * 12 + meta.range * 0.12) * levelScale * roleWeight);
+  const gearPower = (state.loadouts?.[unit.type] || []).reduce((sum, gearId) => {
+    const gear = gearById(gearId);
+    if (!gear) return sum;
+    return sum + 180 + (gear.rank === "史诗" ? 280 : gear.rank === "稀有" ? 170 : 90);
+  }, 0);
+  return Math.round((meta.hp * 0.12 + meta.damage * meta.fireRate * 12 + meta.range * 0.12) * levelScale * roleWeight + gearPower);
 }
 
 function playerPower() {
@@ -1910,7 +2069,7 @@ function techCap() {
 
 function techCost() {
   const level = state.techLevel || 0;
-  return Math.round(755 + level * 600 + level * level * 42);
+  return Math.round(900 + level * 780 + level * level * 105);
 }
 
 function costOf(type) {
@@ -1931,7 +2090,7 @@ function nextAbilityRequirement() {
 function selectedUpgradeCost() {
   const unit = selectedUnit();
   if (!unit) return 0;
-  return Math.round((95 + unit.level * 88 + Math.pow(unit.level, 1.45) * 22) * (1 - relicStat("upgradeDiscount")));
+  return Math.round((180 + unit.level * 210 + Math.pow(unit.level, 1.72) * 95) * (1 - relicStat("upgradeDiscount")));
 }
 
 function claimCost() {
@@ -1987,23 +2146,15 @@ function compactArmyIfNeeded() {
 }
 
 function buyUnit(type) {
-  if (state.gameOver || state.modalOpen) return;
-  const cost = costOf(type);
-  if (state.coins < cost) {
-    showToast("金币不够");
-    return;
-  }
-  if (currentUnitCount() >= state.unitCap) {
-    showToast("兵力已满");
-    return;
-  }
+  selectHero(type);
+}
 
-  state.coins -= cost;
-  state.bought[type] += 1;
-  const pathIndex = state.bought[type] % activePathCount();
-  const x = WORLD.deployLeft + 55 + rand(0, 120);
-  const y = pathY(pathIndex, 0.72) + rand(-48, 48);
-  spawnUnit(type, x, y);
+function selectHero(type) {
+  if (state.gameOver || state.modalOpen) return;
+  const unit = state.units.find((item) => item.type === type);
+  if (!unit) return;
+  state.selectedId = unit.id;
+  showToast(`${UNIT_TYPES[type].name} 已选中`);
   updateUi();
 }
 
@@ -2011,6 +2162,10 @@ function upgradeSelectedUnit() {
   const unit = selectedUnit();
   if (!unit || state.gameOver || state.modalOpen) return;
   const cost = selectedUpgradeCost();
+  if (unit.level >= 12 + state.territory * 2) {
+    showToast("当前关卡等级已到训练上限");
+    return;
+  }
   if (state.coins < cost) {
     showToast("金币不够");
     return;
@@ -2033,6 +2188,10 @@ function upgradeSelectedUnit() {
 function upgradeTech() {
   if (state.gameOver || state.modalOpen) return;
   const cap = techCap();
+  if (state.techLevel >= 8 + state.territory) {
+    showToast("当前关卡科技已到上限");
+    return;
+  }
   if (state.techLevel >= cap) {
     showToast(`科技上限受最高兵种 Lv.${cap} 限制`);
     return;
@@ -2166,11 +2325,12 @@ function buildWaveSpawnQueue() {
   state.currentWavePower = Math.round(budget);
   state.nextWavePower = Math.round(wavePowerTarget());
   const bossWave = state.wave >= 5 && state.wave % 5 === 0;
-  const smallCap = bossWave ? 7 : 11;
+  const swarmWave = mutation.id === "swarm_line";
+  const smallCap = bossWave ? 3 : swarmWave ? 12 : 6;
   let slot = 0;
 
   if (bossWave || state.forceBoss > 0) {
-    const bossPower = enemyUnitPower("boss", true) * 1.35;
+    const bossPower = enemyUnitPower("boss", true) * 1.8;
     state.spawnQueue.push({
       at: 1.4,
       type: "boss",
@@ -2182,7 +2342,7 @@ function buildWaveSpawnQueue() {
   }
 
   while (budget > 70 && slot < smallCap) {
-    const elite = budget > playerPower() * 0.28 && Math.random() < (slot % 3 === 0 ? 0.55 : 0.26);
+    const elite = budget > playerPower() * 0.22 && Math.random() < (slot % 2 === 0 ? 0.7 : 0.36);
     const type = pickEnemyTypeByChapter(chapter, mutation, elite);
     const cost = enemyUnitPower(type, elite);
     state.spawnQueue.push({
@@ -2256,7 +2416,7 @@ function spawnEnemy(type, pathIndex, elite = false) {
     Math.max(0, state.upgrades.elementPower) * 0.65;
   const scale =
     (1 + Math.pow(state.wave, 1.2) * 0.13 + state.territory * 0.08 + armyPower + techPower + upgradePressure) *
-    (elite ? 3.35 : 1);
+    (elite ? 5.8 : 2.4);
   const pos = pointOnPath(pathIndex, 0);
   const affixes = chooseAffixes(elite, type);
   const shieldAffix = affixes.includes("shielded") ? 0.32 : 0;
@@ -2426,8 +2586,9 @@ function updateUnits(dt) {
         : meta.element === "water"
           ? relicMultiplier("waterDamage")
           : 1;
+    const singleDamage = 1 + heroGearStat(unit.type, "singleDamage");
     const rate = meta.fireRate * stats.fireRate * typeRate * (1 + (unit.level - 1) * 0.06);
-    const damage = meta.damage * stats.damage * elementDamage * (1 + (unit.level - 1) * 0.19);
+    const damage = meta.damage * stats.damage * elementDamage * singleDamage * (1 + (unit.level - 1) * 0.19);
     unit.cooldown = 1 / rate;
     unit.attackFlash = 1;
 
@@ -2449,6 +2610,7 @@ function updateUnits(dt) {
       splash: unit.type === "turret" || Math.random() < state.upgrades.splash + stats.splash,
       slow: unit.type === "mage",
       pierce: (unit.type === "rifle" ? 0.55 : 0) + stats.pierce,
+      heroType: unit.type,
     });
   });
 }
@@ -2485,6 +2647,7 @@ function healWithMedic(unit) {
       splash: false,
       slow: false,
       pierce: 0,
+      heroType: unit.type,
     });
   }
 }
@@ -2622,7 +2785,8 @@ function hitEnemy(enemy, rawDamage, source, options = {}) {
   const crit = Math.random() < critChance;
   const bossTaken = enemy.type === "boss" ? 1 + relicStat("bossDamageTaken") + combatStats().bossDamage : 1;
   const slowTaken = enemy.slowTimer > 0 ? 1 + relicStat("slowDamageTaken") : 1;
-  let damage = Math.max(1, rawDamage * multiplier * bossTaken * slowTaken * (crit ? 1.75 : 1) - armor);
+  const shieldTaken = enemy.shield > 0 ? 1 + relicStat("shieldDamage") : 1;
+  let damage = Math.max(1, rawDamage * multiplier * bossTaken * slowTaken * shieldTaken * (crit ? 1.75 : 1) - armor);
   if (enemy.shield > 0) {
     const absorbed = Math.min(enemy.shield, damage);
     enemy.shield -= absorbed;
@@ -2634,6 +2798,14 @@ function hitEnemy(enemy, rawDamage, source, options = {}) {
   if ((source.unitType === "turret" || attackerElement === "fire") && Math.random() < relicStat("burnChance")) {
     enemy.burn = Math.max(enemy.burn || 0, 3.2);
     addFloater(enemy.x, enemy.y - 46, "灼烧", ELEMENTS.fire.color);
+  }
+  if (source.heroType && heroGearStat(source.heroType, "eliteLightning") && enemy.elite) {
+    state.enemies.forEach((item) => {
+      if (item.id !== enemy.id && item.hp > 0 && distance(item, enemy) < 130) {
+        item.hp -= rawDamage * 0.28;
+      }
+    });
+    state.effects.push({ type: "ring", x: enemy.x, y: enemy.y, color: ELEMENTS.metal.color, life: 0.35, maxLife: 0.35, radius: 55 });
   }
   if (attackerElement === "water" && Math.random() < relicStat("waterRoot") + combatStats().waterRoot) {
     enemy.slowTimer = Math.max(enemy.slowTimer, 3.4);
@@ -3085,7 +3257,7 @@ function updateBossPhase(enemy) {
 
 function triggerBossPhase(enemy, phase) {
   enemy.phase = phase;
-  enemy.shield += enemy.maxHp * 0.18;
+  enemy.shield += enemy.maxHp * 0.18 * Math.max(0.25, 1 - relicStat("bossShieldCut"));
   enemy.slowTimer = 0;
   addFloater(enemy.x, enemy.y - 58, `首领 ${phase} 段`, "#ffe28e");
   burst(enemy.x, enemy.y, ELEMENTS[enemy.element].color, 28);
@@ -3115,8 +3287,10 @@ function checkQueuedRewards() {
 }
 
 function showRelicChoice(filter = null) {
-  const available = RELIC_POOL.filter((relic) => !hasRelic(relic.id) && (!filter || filter(relic)));
-  const choices = (available.length ? available : RELIC_POOL).sort(() => Math.random() - 0.5).slice(0, 3);
+  const pool = [...CORE_GEAR, ...RELIC_POOL];
+  const owned = new Set([...state.inventory, ...Object.values(state.loadouts || {}).flat(), ...state.relics]);
+  const available = pool.filter((relic) => !owned.has(relic.id) && (!filter || filter(relic)));
+  const choices = (available.length ? available : pool).sort(() => Math.random() - 0.5).slice(0, 3);
   state.modalOpen = true;
   ui.choiceTitle.textContent = "选择遗物";
   ui.choiceGrid.innerHTML = "";
@@ -3143,7 +3317,14 @@ function showRelicChoice(filter = null) {
 }
 
 function addRelic(relic) {
-  if (!relic || hasRelic(relic.id)) return;
+  if (!relic) return;
+  if (CORE_GEAR.some((gear) => gear.id === relic.id)) {
+    if (!state.inventory.includes(relic.id) && !Object.values(state.loadouts || {}).flat().includes(relic.id)) {
+      state.inventory.push(relic.id);
+    }
+    return;
+  }
+  if (hasRelic(relic.id)) return;
   state.relics.push(relic.id);
   state.seenRelics[relic.id] = true;
   Object.entries(relic.stats || {}).forEach(([key, value]) => {
@@ -3383,15 +3564,98 @@ function renderFormationGrid() {
   });
 }
 
+function renderLoadoutGrid() {
+  if (!ui.loadout || !ui.inventory) return;
+  ui.loadout.innerHTML = "";
+  HERO_TYPES.forEach((type) => {
+    const unit = state.units.find((item) => item.type === type);
+    const card = document.createElement("div");
+    card.className = "loadout-card";
+    const gear = state.loadouts[type] || [];
+    card.innerHTML = `
+      <strong>${UNIT_TYPES[type].name} ${unit ? `Lv.${unit.level}` : ""}</strong>
+      <span>${UNIT_TYPES[type].role}</span>
+      <div class="slot-row" data-slot-row="${type}"></div>
+    `;
+    const row = card.querySelector("[data-slot-row]");
+    for (let slot = 0; slot < 2; slot += 1) {
+      const gearId = gear[slot];
+      const item = gearById(gearId);
+      const button = document.createElement("button");
+      button.className = `gear-slot${gearId ? " filled" : ""}`;
+      button.type = "button";
+      button.textContent = item ? item.name : "空槽";
+      button.addEventListener("click", () => {
+        if (gearId) unequipGear(type, gearId);
+        else equipSelectedGear(type);
+      });
+      row.appendChild(button);
+    }
+    ui.loadout.appendChild(card);
+  });
+
+  ui.inventory.innerHTML = "";
+  state.inventory.forEach((gearId) => {
+    const item = gearById(gearId);
+    if (!item) return;
+    const button = document.createElement("button");
+    button.className = `inventory-card${state.selectedGear === gearId ? " active" : ""}`;
+    button.type = "button";
+    button.innerHTML = `
+      <strong>${item.name}</strong>
+      <span>${item.rank || "普通"} · ${item.slot || "遗物"}</span>
+      <small>${item.desc}</small>
+    `;
+    button.addEventListener("click", () => {
+      state.selectedGear = state.selectedGear === gearId ? null : gearId;
+      updateUi();
+    });
+    ui.inventory.appendChild(button);
+  });
+  if (ui.inventoryText) ui.inventoryText.textContent = state.selectedGear ? `已选 ${gearById(state.selectedGear)?.name}` : `背包 ${state.inventory.length} 件`;
+}
+
+function equipSelectedGear(type) {
+  if (!state.selectedGear) {
+    showToast("先在背包选择装备");
+    return;
+  }
+  const slots = state.loadouts[type] || [];
+  if (slots.length >= 2) {
+    showToast("装备槽已满");
+    return;
+  }
+  state.inventory = state.inventory.filter((id) => id !== state.selectedGear);
+  slots.push(state.selectedGear);
+  state.loadouts[type] = slots;
+  const item = gearById(state.selectedGear);
+  state.selectedGear = null;
+  showToast(`装备：${item?.name || "装备"}`);
+  saveGame();
+  updateUi();
+}
+
+function unequipGear(type, gearId) {
+  state.loadouts[type] = (state.loadouts[type] || []).filter((id) => id !== gearId);
+  state.inventory.push(gearId);
+  showToast(`卸下：${gearById(gearId)?.name || "装备"}`);
+  saveGame();
+  updateUi();
+}
+
 function ensureMarketStock(force = false) {
   if (!force && state.marketStock.length && state.wave - state.marketWave < 3) return;
-  const choices = [...MARKET_ITEMS].sort(() => Math.random() - 0.5).slice(0, 4);
+  const gearDeals = CORE_GEAR.filter((gear) => !state.inventory.includes(gear.id) && !Object.values(state.loadouts || {}).flat().includes(gear.id))
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 2);
+  const choices = [...MARKET_ITEMS, ...gearDeals].sort(() => Math.random() - 0.5).slice(0, 4);
   state.marketStock = choices.map((item) => item.id);
   state.marketWave = state.wave;
 }
 
 function marketCost(item) {
-  return Math.round(item.baseCost * (1 + state.marketRefreshes * 0.08 + state.territory * 0.035));
+  const base = item.baseCost || (item.rank === "史诗" ? 1800 : item.rank === "稀有" ? 1200 : 760);
+  return Math.round(base * (1 + state.marketRefreshes * 0.08 + state.territory * 0.035));
 }
 
 function renderMarketGrid() {
@@ -3399,7 +3663,7 @@ function renderMarketGrid() {
   ensureMarketStock();
   ui.marketGrid.innerHTML = "";
   state.marketStock.forEach((id) => {
-    const item = MARKET_ITEMS.find((entry) => entry.id === id);
+    const item = MARKET_ITEMS.find((entry) => entry.id === id) || CORE_GEAR.find((entry) => entry.id === id);
     if (!item) return;
     const cost = marketCost(item);
     const button = document.createElement("button");
@@ -3423,7 +3687,11 @@ function buyMarketItem(item) {
     return;
   }
   state.coins -= cost;
-  item.apply();
+  if (CORE_GEAR.some((gear) => gear.id === item.id)) {
+    if (!state.inventory.includes(item.id)) state.inventory.push(item.id);
+  } else {
+    item.apply();
+  }
   state.marketStock = state.marketStock.filter((id) => id !== item.id);
   showToast(`购买：${item.name}`);
   saveGame();
@@ -3476,7 +3744,7 @@ function selectChapter(chapter) {
 }
 
 function updateUi() {
-  if (ui.version) ui.version.textContent = "V10 策略扩展版";
+  if (ui.version) ui.version.textContent = "V11 五行英雄版";
   ui.coins.textContent = Math.floor(state.coins);
   ui.territory.textContent = state.territory;
   ui.wave.textContent = state.wave || 1;
@@ -3525,12 +3793,15 @@ function updateUi() {
   ui.techBtn.disabled = state.modalOpen || state.gameOver || techMaxed || state.coins < techCost();
 
   Object.keys(UNIT_TYPES).forEach((type) => {
-    ui.costs[type].textContent = costOf(type);
+    const hero = state.units.find((unit) => unit.type === type);
+    ui.costs[type].textContent = hero ? `Lv.${hero.level}` : "--";
   });
 
   ui.shopButtons.forEach((button) => {
-    const type = button.dataset.buy;
-    button.disabled = state.gameOver || state.modalOpen || currentUnitCount() >= state.unitCap || state.coins < costOf(type);
+    const type = button.dataset.hero;
+    const hero = state.units.find((unit) => unit.type === type);
+    button.disabled = state.gameOver || state.modalOpen || !hero;
+    button.classList.toggle("active", hero?.id === state.selectedId);
   });
 
   Object.entries(TACTICS).forEach(([id, tactic]) => {
@@ -3556,6 +3827,9 @@ function updateUi() {
     state.marketWave,
     state.marketRefreshes,
     state.activeChapter,
+    state.inventory.join(","),
+    Object.entries(state.loadouts || {}).map(([type, gear]) => `${type}:${gear.join(".")}`).join("|"),
+    state.selectedGear || "",
     state.territory,
     state.coins,
     state.units.map((unit) => `${unit.type}${unit.level}`).join("|"),
@@ -3563,6 +3837,7 @@ function updateUi() {
   if (renderSignature !== sideRenderSignature) {
     sideRenderSignature = renderSignature;
     renderFormationGrid();
+    renderLoadoutGrid();
     renderMarketGrid();
     renderChapterGrid();
   }
@@ -3712,6 +3987,11 @@ function drawBase(w, h) {
   const x = WORLD.baseX - 54;
   const top = h * 0.34;
   const bottom = h * 0.76;
+  ctx.fillStyle = "#8f6c45";
+  roundRect(x - 12, top - 8, 106, bottom - top + 16, 10, true, false);
+  ctx.strokeStyle = "#1b1713";
+  ctx.lineWidth = 5;
+  roundRect(x - 12, top - 8, 106, bottom - top + 16, 10, false, true);
   ctx.fillStyle = "#c69050";
   roundRect(x, top, 82, bottom - top, 8, true, false);
   ctx.strokeStyle = "#1b1713";
@@ -3735,9 +4015,13 @@ function drawBase(w, h) {
   const hpWidth = 88;
   const hpPct = clamp(state.baseHp / state.baseMaxHp, 0, 1);
   ctx.fillStyle = "#231a15";
-  roundRect(x - 4, top - 58, hpWidth, 14, 7, true, false);
+  roundRect(x - 14, top - 66, hpWidth + 20, 22, 9, true, false);
   ctx.fillStyle = hpPct > 0.35 ? "#cf4740" : "#edb248";
-  roundRect(x - 2, top - 56, (hpWidth - 4) * hpPct, 10, 5, true, false);
+  roundRect(x - 10, top - 62, (hpWidth + 12) * hpPct, 14, 7, true, false);
+  ctx.fillStyle = "#fff2c7";
+  ctx.font = "900 12px Microsoft YaHei, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("城墙核心", x + 38, top - 75);
 }
 
 function drawEnemyFort(w, h) {
@@ -4270,7 +4554,7 @@ function handlePointerUp() {
 function saveGame() {
   if (!state || state.gameOver) return;
   const payload = {
-    version: 6,
+    version: 7,
     wave: state.wave,
     nextWavePower: state.nextWavePower,
     currentWavePower: state.currentWavePower,
@@ -4282,6 +4566,9 @@ function saveGame() {
     marketRefreshes: state.marketRefreshes,
     activeChapter: state.activeChapter,
     completedChapters: state.completedChapters,
+    inventory: state.inventory,
+    loadouts: state.loadouts,
+    selectedGear: state.selectedGear,
     bridgeCount: state.bridgeCount,
     territory: state.territory,
     canClaim: state.canClaim,
@@ -4340,7 +4627,7 @@ function createSaveCode() {
 function loadSaveCode(code) {
   const raw = decodeURIComponent(escape(atob(code.trim())));
   const parsed = JSON.parse(raw);
-  if (!parsed || ![3, 4, 5, 6].includes(parsed.version)) throw new Error("bad save");
+  if (!parsed || parsed.version !== 7) throw new Error("bad save");
   localStorage.setItem(SAVE_KEY, raw);
   state = createDefaultState();
   entityId = 1;
@@ -4377,7 +4664,7 @@ function loadGame() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     const saved = JSON.parse(raw);
-    if (!saved || ![3, 4, 5, 6].includes(saved.version)) return false;
+    if (!saved || saved.version !== 7) return false;
 
     state.wave = saved.wave || 0;
     state.nextWavePower = saved.nextWavePower || 0;
@@ -4390,6 +4677,12 @@ function loadGame() {
     state.marketRefreshes = saved.marketRefreshes || 0;
     state.activeChapter = STORY_CHAPTERS.some((chapter) => chapter.id === saved.activeChapter) ? saved.activeChapter : state.activeChapter;
     state.completedChapters = { ...(saved.completedChapters || {}) };
+    state.inventory = Array.isArray(saved.inventory) ? saved.inventory.filter((id) => gearById(id)) : state.inventory;
+    state.loadouts = { ...state.loadouts, ...(saved.loadouts || {}) };
+    HERO_TYPES.forEach((type) => {
+      state.loadouts[type] = (state.loadouts[type] || []).filter((id) => gearById(id)).slice(0, 2);
+    });
+    state.selectedGear = saved.selectedGear || null;
     state.bridgeCount = saved.bridgeCount || 1;
     state.territory = saved.territory || 1;
     state.canClaim = !!saved.canClaim;
@@ -4509,10 +4802,11 @@ function restart() {
 }
 
 function spawnStarterUnits() {
-  spawnUnit("rifle", WORLD.deployLeft + 60, pathY(0, 0.72) - 46, true);
-  spawnUnit("guard", WORLD.deployLeft + 96, pathY(0, 0.72) + 4, true);
-  spawnUnit("mage", WORLD.deployLeft + 128, pathY(0, 0.72) + 50, true);
-  spawnUnit("medic", WORLD.deployLeft + 82, pathY(0, 0.72) + 88, true);
+  spawnUnit("rifle", WORLD.deployLeft + 70, pathY(0, 0.67) - 82, true);
+  spawnUnit("medic", WORLD.deployLeft + 0, pathY(0, 0.67) - 38, true);
+  spawnUnit("mage", WORLD.deployLeft + 130, pathY(0, 0.67) - 16, true);
+  spawnUnit("turret", WORLD.deployLeft + 72, pathY(0, 0.67) + 36, true);
+  spawnUnit("guard", WORLD.deployLeft + 10, pathY(0, 0.67) + 84, true);
 }
 
 function init() {
@@ -4523,7 +4817,7 @@ function init() {
   resizeObserver.observe(canvas);
 
   ui.shopButtons.forEach((button) => {
-    button.addEventListener("click", () => buyUnit(button.dataset.buy));
+    button.addEventListener("click", () => selectHero(button.dataset.hero));
   });
   ui.sideTabs.forEach((button) => {
     button.addEventListener("click", () => switchTab(button.dataset.tab));
